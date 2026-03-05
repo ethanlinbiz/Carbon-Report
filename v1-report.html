@@ -8,40 +8,39 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;600;700&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 :root {
-  /* ── Unified dark palette (matches V2 & landing page) ── */
-  --ink:   #0a0f0a;
-  --ink2:  #0f160f;
-  --ink3:  #1e2e1e;
-  --paper: #e8f5e9;
-  --sage:  #52b788;
-  --moss:  #2d6a4f;
-  --mint:  #95d5b2;
-  --amber: #e9c46a;
-  --cream: #141e14;
-  --fog:   #7a9e8a;
-  --rule:  #1e2e1e;
-  --red:   #e63946;
+  --bg:    #1c2320;
+  --bg2:   #232b27;
+  --bg3:   #2a3530;
+  --border:#344039;
+  --green: #4ade80;
+  --green2:#86efac;
+  --green3:#bbf7d0;
+  --amber: #fbbf24;
+  --red:   #f87171;
+  --blue:  #67e8f9;
+  --text:  #e2ede6;
+  --text2: #a3c4ad;
+  --text3: #6b8c76;
   --mono: 'IBM Plex Mono', monospace;
+  --sans: 'Noto Sans TC', sans-serif;
 }
 * { margin:0; padding:0; box-sizing:border-box; }
-body { background:var(--ink); color:var(--paper); font-family:'Noto Sans TC',serif; min-height:100vh; overflow-x:hidden; }
-body::before { content:''; position:fixed; inset:0; background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E"); pointer-events:none; z-index:1000; opacity:0.3; }
-body::after { content:''; position:fixed; inset:0; background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(82,183,136,.012) 2px,rgba(82,183,136,.012) 4px); pointer-events:none; z-index:999; }
+body { background:var(--bg); color:var(--text); font-family:var(--sans); min-height:100vh; overflow-x:hidden; }
 
 /* ── Header ── */
-header { border-bottom:1px solid var(--rule); padding:16px 48px; display:flex; align-items:center; gap:20px; background:var(--ink2); }
+header { border-bottom:1px solid var(--rule); padding:16px 48px; display:flex; align-items:center; gap:20px; background:#2b3438; }
 .logo-mark { width:48px; height:36px; background:var(--moss); display:inline-flex; align-items:center; justify-content:center; color:var(--mint); font-family:var(--mono); font-size:11px; font-weight:500; flex-shrink:0; letter-spacing:-0.5px; }
 .site-title { font-size:20px; font-weight:700; letter-spacing:-0.5px; }
 .site-subtitle { font-family:var(--mono); font-size:11px; color:var(--fog); letter-spacing:2px; text-transform:uppercase; margin-left:auto; }
 
-main { max-width:1100px; margin:0 auto; padding:52px 48px; background:var(--ink); }
+main { max-width:1100px; margin:0 auto; padding:52px 48px; background:#20272a; }
 
 /* ── Steps ── */
-.steps-nav { display:flex; gap:0; margin-bottom:52px; border:1px solid var(--rule); overflow:hidden; }
-.step-item { flex:1; padding:14px 20px; text-align:center; cursor:pointer; border-right:1px solid var(--rule); background:var(--ink2); transition:all .2s; position:relative; color:var(--fog); }
+.steps-nav { display:flex; gap:0; margin-bottom:52px; border:1px solid #3a454a; overflow:hidden; }
+.step-item { flex:1; padding:14px 20px; text-align:center; cursor:pointer; border-right:1px solid var(--rule); background:#2b3438; transition:all .2s; position:relative; color:var(--fog); }
 .step-item:last-child { border-right:none; }
 .step-item.active { background:var(--moss); color:white; }
-.step-item.done { background:var(--ink3); color:var(--fog); }
+.step-item.done { background:#3a454a; color:var(--fog); }
 .step-num { font-family:'DM Mono',monospace; font-size:10px; letter-spacing:2px; opacity:.6; display:block; margin-bottom:3px; }
 .step-label { font-size:13px; font-weight:600; }
 
@@ -62,7 +61,7 @@ main { max-width:1100px; margin:0 auto; padding:52px 48px; background:var(--ink)
 label { font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--fog); }
 label span.req { color:var(--red); }
 input[type=text], input[type=number], select, textarea {
-  padding:10px 14px; border:1px solid var(--rule); background:var(--ink2); font-family:var(--mono); font-size:12px; color:var(--mint);
+  padding:10px 14px; border:1px solid #3a454a; background:#2b3438; font-family:var(--mono); font-size:12px; color:var(--mint);
   transition:border-color .15s; border-radius:0; -webkit-appearance:none;
 }
 input:focus, select:focus, textarea:focus { outline:none; border-color:var(--moss); }
@@ -71,7 +70,7 @@ select { cursor:pointer; background-image:url("data:image/svg+xml,%3Csvg xmlns='
 .form-hint { font-size:11px; color:var(--fog); font-family:'DM Mono',monospace; margin-top:3px; }
 
 /* ── Upload zone ── */
-.upload-panel { border:2px dashed var(--ink3); background:var(--ink2); padding:36px; text-align:center; cursor:pointer; transition:all .2s; }
+.upload-panel { border:2px dashed var(--ink3); background:#2b3438; padding:36px; text-align:center; cursor:pointer; transition:all .2s; }
 .upload-panel:hover, .upload-panel.drag-over { border-color:var(--sage); background:rgba(82,183,136,.07); transform:translateY(-2px); }
 .upload-icon { width:52px; height:52px; margin:0 auto 14px; background:var(--sage); display:flex; align-items:center; justify-content:center; }
 .upload-icon svg { color:white; }
@@ -85,7 +84,7 @@ select { cursor:pointer; background-image:url("data:image/svg+xml,%3Csvg xmlns='
 
 /* ── Template cards ── */
 .template-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:32px; }
-.template-card { border:1px solid var(--rule); padding:20px; background:var(--ink2); cursor:pointer; transition:all .2s; position:relative; color:var(--paper); }
+.template-card { border:1px solid #3a454a; padding:20px; background:#2b3438; cursor:pointer; transition:all .2s; position:relative; color:#d2e6da; }
 .template-card:hover { border-color:var(--sage); box-shadow:3px 3px 0 rgba(82,183,136,.3); }
 .template-card.active { border-color:var(--sage); background:rgba(82,183,136,.08); box-shadow:3px 3px 0 rgba(82,183,136,.4); }
 .template-card.active::after { content:'✓'; position:absolute; top:10px; right:10px; background:var(--moss); color:white; width:18px; height:18px; display:flex; align-items:center; justify-content:center; font-size:10px; border-radius:50%; }
@@ -100,12 +99,12 @@ select { cursor:pointer; background-image:url("data:image/svg+xml,%3Csvg xmlns='
 .btn-primary:disabled { background:var(--fog); cursor:not-allowed; }
 .btn-secondary { padding:14px 28px; border:1px solid var(--sage); background:transparent; color:var(--sage); font-family:'Noto Serif TC',serif; font-size:14px; font-weight:600; cursor:pointer; transition:all .2s; letter-spacing:.5px; }
 .btn-secondary:hover { background:rgba(82,183,136,.1); color:var(--mint); }
-.btn-outline { padding:14px 24px; border:1px solid var(--rule); background:var(--ink2); color:var(--fog); font-family:'Noto Serif TC',serif; font-size:13px; cursor:pointer; transition:all .2s; }
+.btn-outline { padding:14px 24px; border:1px solid #3a454a; background:#2b3438; color:var(--fog); font-family:'Noto Serif TC',serif; font-size:13px; cursor:pointer; transition:all .2s; }
 .btn-outline:hover { border-color:var(--moss); color:var(--moss); }
 
 /* ── Scope filter ── */
 .scope-filter { display:flex; gap:5px; align-items:center; }
-.scope-btn { padding:4px 10px; border:1px solid var(--rule); background:var(--ink2); color:var(--fog); font-family:'DM Mono',monospace; font-size:10px; letter-spacing:1px; cursor:pointer; transition:all .15s; }
+.scope-btn { padding:4px 10px; border:1px solid #3a454a; background:#2b3438; color:var(--fog); font-family:'DM Mono',monospace; font-size:10px; letter-spacing:1px; cursor:pointer; transition:all .15s; }
 .scope-btn:hover { border-color:var(--sage); color:var(--sage); }
 .scope-btn.active-all { background:var(--moss); border-color:var(--sage); color:var(--mint); }
 .scope-btn.active-s1  { background:rgba(233,196,106,.2); border-color:var(--amber); color:var(--amber); }
@@ -116,7 +115,7 @@ select { cursor:pointer; background-image:url("data:image/svg+xml,%3Csvg xmlns='
 /* ══════════════════════════════════════
    REPORT STYLES (print-friendly)
 ══════════════════════════════════════ */
-.report-wrap { background:#f8f6f0; border:1px solid var(--rule); }
+.report-wrap { background:#f8f6f0; border:1px solid #3a454a; }
 
 /* Cover page */
 .rpt-cover { background:#1a3a2a; color:white; padding:56px 56px 48px; position:relative; overflow:hidden; }
@@ -139,8 +138,8 @@ select { cursor:pointer; background-image:url("data:image/svg+xml,%3Csvg xmlns='
 
 /* Info table */
 .rpt-info-table { width:100%; border-collapse:collapse; font-size:13px; margin-top:8px; }
-.rpt-info-table th { width:200px; padding:9px 14px; background:var(--cream); font-weight:700; font-size:11px; letter-spacing:.5px; border:1px solid var(--rule); text-align:left; vertical-align:top; }
-.rpt-info-table td { padding:9px 14px; border:1px solid var(--rule); line-height:1.6; vertical-align:top; }
+.rpt-info-table th { width:200px; padding:9px 14px; background:var(--cream); font-weight:700; font-size:11px; letter-spacing:.5px; border:1px solid #3a454a; text-align:left; vertical-align:top; }
+.rpt-info-table td { padding:9px 14px; border:1px solid #3a454a; line-height:1.6; vertical-align:top; }
 
 /* Stats row */
 .stats-row { display:grid; grid-template-columns:repeat(4,1fr); }
@@ -503,7 +502,7 @@ footer { border-top:1px solid var(--rule); padding:20px 48px; display:flex; just
       <div class="rpt-section">
         <div class="rpt-section-num">SECTION 3</div>
         <div class="rpt-section-title">溫室氣體排放量彙整</div>
-        <div class="stats-row" style="border:1px solid var(--rule); margin-bottom:20px;">
+        <div class="stats-row" style="border:1px solid #3a454a; margin-bottom:20px;">
           <div class="stat-box">
             <div class="stat-label">總排放量</div>
             <div class="stat-value" id="stat-total">—</div>
@@ -569,7 +568,7 @@ footer { border-top:1px solid var(--rule); padding:20px 48px; display:flex; just
       <div class="rpt-section">
         <div class="rpt-section-num">SECTION 4</div>
         <div class="rpt-section-title">排放強度指標</div>
-        <div class="stats-row" style="border:1px solid var(--rule);">
+        <div class="stats-row" style="border:1px solid #3a454a;">
           <div class="stat-box">
             <div class="stat-label">人均排放量</div>
             <div class="stat-value" id="stat-per-emp" style="font-size:22px;">—</div>
