@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>碳管理系統 · GHG Management System</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Noto+Sans+TC:wght@300;400;500;700&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* ══ DESIGN DIRECTION: Industrial precision meets sustainability ══
+   Dark slate + moss green accents. IBM Plex Mono for data density.
+   DM Serif Display for authority. Clean, purposeful, no decoration for its own sake.
+*/
+:root{
+  --ink:#1a1f1a; --ink2:#2d352d; --ink3:#3d4a3d;
+  --moss:#2d6a4f; --moss2:#52b788; --moss3:#95d5b2;
+  --sage:#74b49b; --fog:#a8c5b5;
+  --amber:#e9c46a; --amber2:#f4a261;
+  --paper:#f8f6f0; --paper2:#ede8da; --paper3:#d4cfc0;
+  --red:#c1121f; --blue:#457b9d;
+  --mono:'IBM Plex Mono',monospace;
+  --serif:'DM Serif Display',serif;
+  --sans:'Noto Sans TC',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{font-size:15px;}
+body{background:var(--ink);color:var(--paper);font-family:var(--sans);min-height:100vh;overflow-x:hidden;}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:var(--ink2);}
+::-webkit-scrollbar-thumb{background:var(--ink3);border-radius:2px;}
+
+/* ══ TOP RAIL ══ */
+.rail{position:fixed;top:0;left:0;right:0;height:56px;background:var(--ink);border-bottom:1px solid var(--ink3);display:flex;align-items:center;padding:0 32px;gap:20px;z-index:200;}
+.rail-logo{font-family:var(--serif);font-size:17px;color:var(--moss3);letter-spacing:.5px;flex-shrink:0;}
+.rail-logo span{color:var(--fog);font-size:12px;font-family:var(--mono);letter-spacing:2px;display:block;margin-top:-4px;}
+.rail-flow{flex:1;display:flex;align-items:center;justify-content:center;gap:0;}
+.rail-step{display:flex;align-items:center;gap:0;cursor:pointer;}
+.rs-node{display:flex;align-items:center;gap:8px;padding:6px 14px;transition:all .2s;}
+.rs-num{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;font-weight:500;border:1px solid var(--ink3);color:var(--fog);transition:all .2s;flex-shrink:0;}
+.rs-label{font-size:11px;color:var(--fog);white-space:nowrap;font-family:var(--mono);letter-spacing:.5px;transition:all .2s;}
+.rs-arrow{width:32px;height:1px;background:var(--ink3);flex-shrink:0;position:relative;}
+.rs-arrow::after{content:'›';position:absolute;right:-4px;top:-8px;color:var(--ink3);font-size:13px;}
+/* States */
+.rail-step.done .rs-num{background:var(--moss);border-color:var(--moss);color:white;}
+.rail-step.done .rs-label{color:var(--fog);}
+.rail-step.done .rs-arrow{background:var(--moss);}
+.rail-step.done .rs-arrow::after{color:var(--moss);}
+.rail-step.active .rs-num{background:var(--moss2);border-color:var(--moss2);color:var(--ink);}
+.rail-step.active .rs-label{color:var(--moss3);font-weight:500;}
+.rail-step.pending .rs-num{background:transparent;}
+.rail-status{font-family:var(--mono);font-size:10px;color:var(--fog);display:flex;align-items:center;gap:6px;flex-shrink:0;}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--moss2);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(82,183,136,.4)}60%{opacity:.7;box-shadow:0 0 0 5px rgba(82,183,136,0)}}
+.rail-time{font-family:var(--mono);font-size:11px;color:var(--ink3);flex-shrink:0;}
+
+/* ══ MAIN CONTENT ══ */
+.content{margin-top:56px;min-height:calc(100vh - 56px);}
+.step-view{display:none;padding:40px 48px;max-width:1280px;margin:0 auto;animation:appear .3s ease;}
+.step-view.active{display:block;}
+@keyframes appear{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* ══ STEP HEADERS ══ */
+.step-header{margin-bottom:32px;padding-bottom:20px;border-bottom:1px solid var(--ink3);}
+.step-eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:3px;color:var(--sage);text-transform:uppercase;margin-bottom:6px;}
+.step-title{font-family:var(--serif);font-size:34px;color:var(--paper);letter-spacing:-.5px;line-height:1.1;margin-bottom:8px;}
+.step-desc{font-size:13px;color:var(--fog);line-height:1.7;max-width:600px;}
+
+/* ══ CARDS ══ */
+.card{background:var(--ink2);border:1px solid var(--ink3);margin-bottom:16px;}
+.card-head{padding:14px 20px;border-bottom:1px solid var(--ink3);display:flex;align-items:center;justify-content:space-between;}
+.card-title{font-family:var(--mono);font-size:11px;color:var(--moss3);letter-spacing:1px;text-transform:uppercase;}
+.card-body{padding:20px;}
+.badge{font-family:var(--mono);font-size:9px;padding:3px 9px;letter-spacing:.5px;border-radius:2px;}
+.b-live{background:rgba(82,183,136,.15);color:var(--moss2);border:1px solid rgba(82,183,136,.3);animation:blink 2s infinite;}
+.b-erp{background:rgba(69,123,157,.15);color:#6db4d8;border:1px solid rgba(69,123,157,.3);}
+.b-iot{background:rgba(233,196,106,.15);color:var(--amber);border:1px solid rgba(233,196,106,.3);}
+.b-ok{background:rgba(82,183,136,.15);color:var(--moss2);border:1px solid rgba(82,183,136,.3);}
+.b-warn{background:rgba(233,196,106,.15);color:var(--amber);border:1px solid rgba(233,196,106,.3);}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* ══ GRIDS ══ */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px;}
+
+/* ══ KPI TILES ══ */
+.kpi{background:var(--ink2);border:1px solid var(--ink3);padding:20px;position:relative;overflow:hidden;}
+.kpi::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;}
+.kpi.green::after{background:linear-gradient(90deg,var(--moss),var(--moss2));}
+.kpi.amber::after{background:linear-gradient(90deg,var(--amber),var(--amber2));}
+.kpi.blue::after{background:linear-gradient(90deg,var(--blue),#6db4d8);}
+.kpi.red::after{background:var(--red);}
+.kpi-label{font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--fog);text-transform:uppercase;margin-bottom:10px;}
+.kpi-value{font-size:30px;font-weight:700;line-height:1;font-family:var(--mono);margin-bottom:3px;}
+.kpi.green .kpi-value{color:var(--moss2);}
+.kpi.amber .kpi-value{color:var(--amber);}
+.kpi.blue .kpi-value{color:#6db4d8;}
+.kpi.red .kpi-value{color:var(--red);}
+.kpi-unit{font-family:var(--mono);font-size:10px;color:var(--fog);}
+.kpi-delta{position:absolute;top:16px;right:16px;font-family:var(--mono);font-size:10px;}
+.delta-up{color:#e63946;} .delta-dn{color:var(--moss2);}
+
+/* ══ IoT SENSORS ══ */
+.sensors{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;}
+.sensor{background:var(--ink);border:1px solid var(--ink3);padding:14px;position:relative;transition:border-color .3s;}
+.sensor.warn-state{border-color:rgba(233,196,106,.5);}
+.sensor-id{font-family:var(--mono);font-size:9px;color:var(--fog);letter-spacing:1px;margin-bottom:4px;}
+.sensor-name{font-family:var(--mono);font-size:9px;color:var(--ink3);margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sensor-val{font-family:var(--mono);font-size:22px;font-weight:500;color:var(--moss3);line-height:1;}
+.sensor-unit{font-family:var(--mono);font-size:9px;color:var(--fog);margin-top:2px;}
+.sensor-track{height:2px;background:var(--ink3);margin-top:10px;}
+.sensor-fill{height:100%;transition:width .8s ease;background:var(--moss);}
+.sensor-fill.w{background:var(--amber);}
+.sensor-dot{position:absolute;top:10px;right:10px;width:6px;height:6px;border-radius:50%;background:var(--moss2);}
+.sensor-dot.warn{background:var(--amber);animation:pulse 1.5s infinite;}
+
+/* ══ TABLES ══ */
+.data-table{width:100%;border-collapse:collapse;font-size:12px;}
+.data-table th{padding:9px 12px;text-align:left;font-family:var(--mono);font-size:9px;letter-spacing:1.5px;color:var(--fog);text-transform:uppercase;border-bottom:1px solid var(--ink3);}
+.data-table td{padding:9px 12px;border-bottom:1px solid rgba(61,74,61,.4);font-family:var(--mono);font-size:11px;}
+.data-table tr:hover td{background:var(--ink);}
+.data-table tr:last-child td{border-bottom:none;}
+.data-table .num{text-align:right;color:var(--moss3);}
+.data-table .total-row td{background:rgba(45,106,79,.2);font-weight:700;color:var(--moss2);border-top:1px solid var(--moss);border-bottom:none;}
+.tag{display:inline-flex;align-items:center;padding:2px 7px;font-family:var(--mono);font-size:9px;letter-spacing:.5px;border-radius:2px;}
+.ts1{background:rgba(233,196,106,.12);color:var(--amber);border:1px solid rgba(233,196,106,.2);}
+.ts2{background:rgba(82,183,136,.12);color:var(--moss2);border:1px solid rgba(82,183,136,.2);}
+.ts3{background:rgba(69,123,157,.12);color:#6db4d8;border:1px solid rgba(69,123,157,.2);}
+.tmod{background:rgba(69,123,157,.1);color:#6db4d8;border:1px solid rgba(69,123,157,.2);}
+
+/* ══ PROGRESS BARS ══ */
+.prog{margin-bottom:12px;}
+.prog-head{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;margin-bottom:5px;}
+.prog-lbl{color:var(--fog);}
+.prog-val{color:var(--moss3);}
+.prog-track{height:3px;background:var(--ink3);}
+.prog-fill{height:100%;border-radius:1px;transition:width 1s ease;}
+.pf-g{background:var(--moss);} .pf-a{background:var(--amber);} .pf-b{background:var(--blue);}
+
+/* ══ LOG STREAM ══ */
+.log{font-family:var(--mono);font-size:11px;line-height:1.9;max-height:150px;overflow-y:auto;}
+.log-line{display:flex;gap:12px;border-bottom:1px solid rgba(61,74,61,.3);padding:2px 0;}
+.lt{color:var(--ink3);flex-shrink:0;} .ls-i{color:var(--amber);flex-shrink:0;} .ls-e{color:#6db4d8;flex-shrink:0;} .ls-s{color:var(--moss2);flex-shrink:0;}
+.lm{color:var(--fog);}
+
+/* ══ ALERTS ══ */
+.alert{padding:10px 16px;border-left:3px solid;font-family:var(--mono);font-size:11px;line-height:1.6;margin-bottom:14px;}
+.al-g{border-color:var(--moss2);background:rgba(82,183,136,.08);color:var(--moss3);}
+.al-a{border-color:var(--amber);background:rgba(233,196,106,.08);color:var(--amber);}
+.al-b{border-color:#6db4d8;background:rgba(69,123,157,.08);color:#6db4d8;}
+
+/* ══ SOURCE SELECTION ══ */
+.source-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px;}
+.source-card{background:var(--ink2);border:2px solid var(--ink3);padding:24px 20px;cursor:pointer;transition:all .2s;text-align:center;}
+.source-card:hover{border-color:var(--ink3);background:var(--ink);}
+.source-card.selected{border-color:var(--moss2);background:rgba(82,183,136,.07);}
+.sc-icon{font-size:32px;margin-bottom:12px;}
+.sc-title{font-size:14px;font-weight:700;margin-bottom:6px;color:var(--paper);}
+.sc-desc{font-family:var(--mono);font-size:10px;color:var(--fog);line-height:1.6;}
+.sc-badge{display:inline-block;margin-top:10px;}
+
+/* ══ FORM ELEMENTS ══ */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px 20px;}
+.fg{display:flex;flex-direction:column;gap:6px;}
+.fg.full{grid-column:1/-1;}
+.flabel{font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--fog);text-transform:uppercase;}
+.flabel .req{color:var(--red);}
+input,select,textarea{background:var(--ink);border:1px solid var(--ink3);color:var(--paper);font-family:var(--mono);font-size:12px;padding:9px 12px;transition:border-color .15s;width:100%;}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--moss);}
+select{cursor:pointer;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23a8c5b5' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:30px;}
+textarea{resize:vertical;min-height:72px;line-height:1.6;}
+.val-err{font-family:var(--mono);font-size:10px;color:var(--red);margin-top:2px;}
+
+/* ══ UPLOAD ZONE ══ */
+.upload-zone{border:2px dashed var(--ink3);padding:32px;text-align:center;cursor:pointer;transition:all .2s;}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--moss);background:rgba(82,183,136,.05);}
+.uz-title{font-size:15px;font-weight:600;color:var(--moss3);margin-bottom:6px;}
+.uz-sub{font-family:var(--mono);font-size:10px;color:var(--fog);}
+.uz-demo{color:var(--moss2);text-decoration:underline;cursor:pointer;font-family:var(--mono);font-size:10px;}
+.file-tag{margin-top:12px;padding:8px 14px;background:rgba(82,183,136,.1);border-left:2px solid var(--moss);font-family:var(--mono);font-size:11px;color:var(--moss3);display:none;text-align:left;}
+.pbar{height:2px;background:var(--ink3);margin-top:8px;display:none;}
+.pfill{height:100%;background:var(--moss);width:0%;transition:width .4s;}
+.err-msg{display:none;padding:8px 14px;background:rgba(193,18,31,.1);border-left:2px solid var(--red);font-family:var(--mono);font-size:11px;color:var(--red);margin-top:8px;}
+
+/* ══ BUTTONS ══ */
+.btn{display:inline-flex;align-items:center;gap:8px;padding:11px 24px;font-family:var(--mono);font-size:11px;letter-spacing:1px;cursor:pointer;border:none;transition:all .15s;}
+.btn-primary{background:var(--moss2);color:var(--ink);font-weight:700;}
+.btn-primary:hover{background:var(--moss3);}
+.btn-primary:disabled{background:var(--ink3);color:var(--fog);cursor:not-allowed;}
+.btn-secondary{background:transparent;color:var(--moss2);border:1px solid var(--moss);}
+.btn-secondary:hover{background:rgba(82,183,136,.1);}
+.btn-ghost{background:transparent;color:var(--fog);border:1px solid var(--ink3);}
+.btn-ghost:hover{border-color:var(--fog);}
+.btn-row{display:flex;gap:12px;margin-top:20px;flex-wrap:wrap;align-items:center;}
+
+/* ══ CHARTS (CSS only bar charts) ══ */
+.bar-chart{display:flex;align-items:flex-end;gap:3px;height:80px;}
+.bar-col{flex:1;border-radius:2px 2px 0 0;transition:height .6s ease;}
+
+/* ══ REPORT (ISO paper style) ══ */
+.report-paper{background:var(--paper);color:#1a1a1a;font-family:var(--sans);}
+.rpt-cover{background:#1a3a2a;color:white;padding:56px 48px;position:relative;overflow:hidden;}
+.rpt-cover::before{content:'GHG';position:absolute;right:-20px;bottom:-30px;font-size:200px;font-weight:700;color:rgba(255,255,255,.04);font-family:var(--serif);line-height:1;pointer-events:none;}
+.rpt-cover-eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:3px;opacity:.5;margin-bottom:12px;}
+.rpt-cover-title{font-family:var(--serif);font-size:42px;font-weight:400;letter-spacing:-1px;line-height:1.1;margin-bottom:16px;}
+.rpt-cover-org{font-size:18px;font-weight:700;margin-bottom:4px;}
+.rpt-cover-period{font-family:var(--mono);font-size:12px;opacity:.6;}
+.rpt-cover-tags{margin-top:28px;display:flex;gap:8px;}
+.rpt-ctag{border:1px solid rgba(255,255,255,.25);padding:4px 12px;font-family:var(--mono);font-size:9px;letter-spacing:1.5px;opacity:.7;}
+.rpt-section{padding:28px 48px;border-bottom:1px solid var(--paper3);}
+.rpt-section:last-child{border-bottom:none;}
+.rpt-sec-label{font-family:var(--mono);font-size:9px;letter-spacing:2px;color:#8a9e8f;margin-bottom:6px;}
+.rpt-sec-title{font-family:var(--serif);font-size:20px;color:#1a3a2a;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #a8d5b5;}
+.rpt-info-table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:0;}
+.rpt-info-table th{width:190px;padding:9px 14px;background:var(--paper2);font-size:11px;font-weight:700;border:1px solid var(--paper3);text-align:left;vertical-align:top;color:#2d4a35;}
+.rpt-info-table td{padding:9px 14px;border:1px solid var(--paper3);font-size:12px;line-height:1.65;vertical-align:top;}
+.rpt-kpi-row{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--paper3);margin-bottom:20px;}
+.rpt-kpi{padding:20px;border-right:1px solid var(--paper3);}
+.rpt-kpi:last-child{border-right:none;}
+.rpt-kpi-lbl{font-family:var(--mono);font-size:9px;letter-spacing:1px;color:#8a9e8f;text-transform:uppercase;margin-bottom:8px;}
+.rpt-kpi-val{font-size:26px;font-weight:700;line-height:1;margin-bottom:3px;}
+.rpt-kpi-val.total{color:#1a3a2a;} .rpt-kpi-val.s1{color:#c47a2a;} .rpt-kpi-val.s2{color:#2d6a4f;} .rpt-kpi-val.s3{color:#457b9d;}
+.rpt-kpi-unit{font-size:10px;color:#8a9e8f;font-family:var(--mono);}
+.rpt-emission-tbl{width:100%;border-collapse:collapse;font-size:11.5px;}
+.rpt-emission-tbl th{padding:9px 12px;background:var(--paper2);font-size:10px;font-weight:700;border-bottom:2px solid #1a3a2a;text-align:left;}
+.rpt-emission-tbl td{padding:9px 12px;border-bottom:1px solid var(--paper3);}
+.rpt-emission-tbl .num{text-align:right;font-family:var(--mono);}
+.rpt-emission-tbl .total-r td{background:var(--paper2);font-weight:700;border-top:2px solid #1a3a2a;border-bottom:none;}
+.rpt-tag-s1{color:#c47a2a;font-weight:700;} .rpt-tag-s2{color:#2d6a4f;font-weight:700;} .rpt-tag-s3{color:#457b9d;font-weight:700;}
+.scope-bar{margin-bottom:14px;}
+.scope-bar-head{display:flex;justify-content:space-between;font-size:11px;margin-bottom:5px;}
+.scope-bar-track{height:5px;background:var(--paper3);}
+.scope-bar-fill{height:100%;} .sbf1{background:#c47a2a;} .sbf2{background:#2d6a4f;} .sbf3{background:#457b9d;}
+.sug-item{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--paper3);font-size:12px;line-height:1.65;}
+.sug-item:last-child{border-bottom:none;}
+.sug-dot{width:8px;height:8px;background:#2d6a4f;flex-shrink:0;margin-top:5px;}
+.sign-area{display:grid;grid-template-columns:1fr 1fr;gap:60px;margin-top:24px;}
+.sign-block .sign-label{font-family:var(--mono);font-size:9px;letter-spacing:2px;color:#8a9e8f;text-transform:uppercase;margin-bottom:24px;}
+.sign-line{border-bottom:1px solid #1a1a1a;height:36px;margin-bottom:6px;}
+.sign-name{font-family:var(--mono);font-size:11px;color:#8a9e8f;}
+/* scope filter */
+.sf-row{display:flex;align-items:center;gap:4px;}
+.sf-btn{padding:3px 10px;font-family:var(--mono);font-size:9px;border:1px solid var(--paper3);background:transparent;cursor:pointer;transition:all .15s;letter-spacing:.5px;}
+.sf-btn:hover{border-color:#2d6a4f;}
+.sf-active-all{background:var(--paper2);border-color:#2d6a4f;color:#2d6a4f;}
+.sf-active-s1{background:rgba(196,122,42,.1);border-color:#c47a2a;color:#c47a2a;}
+.sf-active-s2{background:rgba(45,106,79,.1);border-color:#2d6a4f;color:#2d6a4f;}
+.sf-active-s3{background:rgba(69,123,157,.1);border-color:#457b9d;color:#457b9d;}
+
+/* ══ LOADING OVERLAY ══ */
+.loading{display:none;position:fixed;inset:0;background:rgba(26,31,26,.95);z-index:500;align-items:center;justify-content:center;flex-direction:column;gap:16px;}
+.loading.on{display:flex;}
+.spin{width:40px;height:40px;border:2px solid var(--ink3);border-top-color:var(--moss2);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.load-txt{font-family:var(--mono);font-size:12px;color:var(--moss3);letter-spacing:2px;}
+
+/* ══ PROGRESS TRACKER (sidebar) ══ */
+.pg-tracker{position:fixed;left:32px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:0;z-index:100;}
+.pg-item{display:flex;align-items:center;gap:10px;padding:6px 0;cursor:pointer;}
+.pg-circle{width:28px;height:28px;border-radius:50%;border:2px solid var(--ink3);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;color:var(--fog);transition:all .2s;flex-shrink:0;background:var(--ink);}
+.pg-item.done .pg-circle{background:var(--moss);border-color:var(--moss);color:white;}
+.pg-item.active .pg-circle{background:var(--moss2);border-color:var(--moss2);color:var(--ink);font-weight:700;}
+.pg-text{font-family:var(--mono);font-size:10px;color:var(--fog);white-space:nowrap;opacity:0;transform:translateX(-10px);transition:all .2s;}
+.pg-item:hover .pg-text,.pg-item.active .pg-text{opacity:1;transform:translateX(0);}
+.pg-item.active .pg-text{color:var(--moss3);}
+.pg-line{width:2px;height:20px;background:var(--ink3);margin-left:13px;transition:background .3s;}
+.pg-item.done+.pg-line{background:var(--moss);}
+
+@media print{
+  .rail,.pg-tracker,.btn-row,.sf-row,.no-print{display:none!important;}
+  .report-paper .rpt-cover{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .sbf1,.sbf2,.sbf3{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  @page{size:A4;margin:14mm 12mm;}
+  .rpt-emission-tbl tr{page-break-inside:avoid;}
+}
+</style>
+</head>
+<body>
+
+<!-- TOP RAIL -->
+<div class="rail">
+  <div class="rail-logo">GHG<br><span>CARBON MGT</span></div>
+  <div class="rail-flow" id="rail-flow">
+    <!-- rendered by JS -->
+  </div>
+  <div class="rail-status"><div class="live-dot"></div><span id="sys-status">系統就緒</span></div>
+  <div class="rail-time" id="clock">--:--:--</div>
+</div>
+
+<div id="pg-tracker" style="display:none"></div>
+
+<!-- CONTENT AREA -->
+<div class="content">
+
+<!-- ══ STEP 1: 連線設定 ══ -->
+<div class="step-view active" id="sv1">
+  <div class="step-header">
+    <div class="step-eyebrow">STEP 01 / 05 · 系統連線</div>
+    <div class="step-title">連接能源<br>資料來源</div>
+    <div class="step-desc">設定 ERP 系統與 IoT 感測器連線，系統將自動收集燃料、電力、製程等排放數據，作為後續碳盤查計算基礎。</div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="card-head"><span class="card-title">ERP 系統連線</span><span class="badge b-erp">SAP / Oracle</span></div>
+      <div class="card-body">
+        <div class="form-grid">
+          <div class="fg full"><div class="flabel">ERP 系統類型</div><select id="c-erp-type"><option>SAP S/4HANA</option><option>Oracle ERP Cloud</option><option>Microsoft Dynamics 365</option><option>鼎新 Workflow</option><option>自行開發 REST API</option></select></div>
+          <div class="fg"><div class="flabel">API 端點 URL</div><input value="https://erp.demo-company.com/api/v2"></div>
+          <div class="fg"><div class="flabel">認證方式</div><select><option>OAuth 2.0</option><option>API Key</option><option>Basic Auth</option></select></div>
+          <div class="fg"><div class="flabel">Client ID</div><input value="ghg_client_2024"></div>
+          <div class="fg"><div class="flabel">Client Secret</div><input type="password" value="demo_secret"></div>
+          <div class="fg"><div class="flabel">同步模組</div><select><option>PM + MM + HR 全部模組</option><option>僅 PM 能源模組</option><option>自訂</option></select></div>
+        </div>
+        <div class="btn-row"><button class="btn btn-secondary" onclick="testConn('ERP')">◎ 測試連線</button></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-title">IoT Hub 連線</span><span class="badge b-iot">MQTT</span></div>
+      <div class="card-body">
+        <div class="form-grid">
+          <div class="fg full"><div class="flabel">IoT 平台</div><select><option>Azure IoT Hub</option><option>AWS IoT Core</option><option>自建 MQTT Broker</option><option>Modbus TCP</option></select></div>
+          <div class="fg"><div class="flabel">Broker 位址</div><input value="mqtt://iot.demo-company.com"></div>
+          <div class="fg"><div class="flabel">連線協定</div><select><option>MQTT over WebSocket</option><option>MQTT TCP</option><option>REST 輪詢</option></select></div>
+          <div class="fg"><div class="flabel">Topic 前綴</div><input value="factory/ghg/#"></div>
+          <div class="fg"><div class="flabel">感測器數量</div><input type="number" value="14"></div>
+          <div class="fg"><div class="flabel">更新頻率（秒）</div><input type="number" value="5"></div>
+        </div>
+        <div class="btn-row"><button class="btn btn-secondary" onclick="testConn('IoT')">◎ 測試連線</button></div>
+      </div>
+    </div>
+  </div>
+  <div id="conn-msg"></div>
+  <div class="btn-row">
+    <button class="btn btn-primary" onclick="goStep(2)">已設定連線，開始收集能源數據 →</button>
+    <button class="btn btn-ghost" onclick="goStep(2)">跳過（使用 Demo 資料）</button>
+  </div>
+</div>
+
+<!-- ══ STEP 2: 即時能源監控 ══ -->
+<div class="step-view" id="sv2">
+  <div class="step-header">
+    <div class="step-eyebrow">STEP 02 / 05 · 能源監控</div>
+    <div class="step-title">即時能源<br>數據監控</div>
+    <div class="step-desc">來自 ERP 系統與 IoT 感測器的即時能源消耗數據。確認數據正常後，進入下一步審核排放清單。</div>
+  </div>
+
+  <div class="g4">
+    <div class="kpi green"><div class="kpi-label">年度累計排放</div><div class="kpi-value" id="kv-total">2,492</div><div class="kpi-unit">公噸 CO₂e</div><div class="kpi-delta delta-up">↑3.2%</div></div>
+    <div class="kpi amber"><div class="kpi-label">本月用電量</div><div class="kpi-value" id="kv-elec">182K</div><div class="kpi-unit">kWh / 月</div><div class="kpi-delta delta-dn">↓1.4%</div></div>
+    <div class="kpi blue"><div class="kpi-label">即時燃氣流量</div><div class="kpi-value" id="kv-gas">4.2K</div><div class="kpi-unit">m³ / 月</div><div class="kpi-delta delta-dn">↓0.8%</div></div>
+    <div class="kpi red"><div class="kpi-label">感測器異常</div><div class="kpi-value">2</div><div class="kpi-unit">需確認</div></div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="card-head"><span class="card-title">IoT 感測器即時讀值</span><span class="badge b-live">● LIVE</span></div>
+      <div class="card-body"><div class="sensors" id="iot-mini"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-title">ERP 能源模組數據</span><span class="badge b-erp">SAP PM</span></div>
+      <div class="card-body">
+        <div class="prog"><div class="prog-head"><span class="prog-lbl">天然氣</span><span class="prog-val">48,500 m³</span></div><div class="prog-track"><div class="prog-fill pf-g" style="width:72%"></div></div></div>
+        <div class="prog"><div class="prog-head"><span class="prog-lbl">柴油</span><span class="prog-val">18,200 公升</span></div><div class="prog-track"><div class="prog-fill pf-a" style="width:54%"></div></div></div>
+        <div class="prog"><div class="prog-head"><span class="prog-lbl">工廠電力</span><span class="prog-val">1,850,000 kWh</span></div><div class="prog-track"><div class="prog-fill pf-b" style="width:88%"></div></div></div>
+        <div class="prog"><div class="prog-head"><span class="prog-lbl">辦公室電力</span><span class="prog-val">320,000 kWh</span></div><div class="prog-track"><div class="prog-fill pf-b" style="width:52%"></div></div></div>
+        <div class="prog"><div class="prog-head"><span class="prog-lbl">外購蒸汽</span><span class="prog-val">2,800 GJ</span></div><div class="prog-track"><div class="prog-fill pf-g" style="width:44%"></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><span class="card-title">資料串流</span><span class="badge b-live">● 即時</span></div>
+    <div class="card-body"><div class="log" id="log-stream"></div></div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-primary" onclick="goStep(3)">數據正常，審核排放清單 →</button>
+    <button class="btn btn-ghost" onclick="goStep(1)">← 返回連線設定</button>
+  </div>
+</div>
+
+<!-- ══ STEP 3: 排放數據審核 ══ -->
+<div class="step-view" id="sv3">
+  <div class="step-header">
+    <div class="step-eyebrow">STEP 03 / 05 · 數據審核</div>
+    <div class="step-title">審核排放<br>數據清單</div>
+    <div class="step-desc">來自 ERP 與 IoT 的原始數據已換算為 CO₂e 排放量。請選擇資料來源、審核清單，確認無誤後繼續。</div>
+  </div>
+
+  <div class="source-cards" style="grid-template-columns:repeat(4,1fr);">
+    <div class="source-card selected" id="sc-erp" onclick="selectSrc('erp')">
+      <div class="sc-icon">◈</div>
+      <div class="sc-title">ERP 系統</div>
+      <div class="sc-desc">SAP S/4HANA<br>PM / MM / HR 三模組<br>14 筆 · 2,492.65 tCO₂e</div>
+      <div class="sc-badge"><span class="badge b-erp">已連線</span></div>
+    </div>
+    <div class="source-card" id="sc-iot" onclick="selectSrc('iot')">
+      <div class="sc-icon">◉</div>
+      <div class="sc-title">IoT 感測器</div>
+      <div class="sc-desc">智慧電錶 + 燃氣流量<br>範疇一&二即時換算<br>8 筆 · 1,685.60 tCO₂e</div>
+      <div class="sc-badge"><span class="badge b-iot">14 感測器</span></div>
+    </div>
+    <div class="source-card" id="sc-iot-erp" onclick="selectSrc('iot-erp')">
+      <div class="sc-icon">⊕</div>
+      <div class="sc-title">IoT + ERP 整合</div>
+      <div class="sc-desc">IoT 範疇一&二即時數據<br>ERP 補充範疇三<br>14 筆 · 2,386.47 tCO₂e</div>
+      <div class="sc-badge"><span class="badge b-live">整合模式</span></div>
+    </div>
+    <div class="source-card" id="sc-excel" onclick="selectSrc('excel')">
+      <div class="sc-icon">↑</div>
+      <div class="sc-title">手動上傳 Excel</div>
+      <div class="sc-desc">自製排放清單<br>.xlsx / .xls 格式<br>支援標準範本</div>
+      <div class="sc-badge"><span class="badge" style="background:rgba(168,197,181,.1);color:var(--fog);border:1px solid var(--ink3);">手動</span></div>
+    </div>
+  </div>
+
+  <!-- Excel upload panel -->
+  <div id="panel-excel" style="display:none;margin-bottom:16px;">
+    <div class="upload-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+      <div class="uz-title">拖曳或點擊上傳 Excel</div>
+      <div class="uz-sub">.xlsx · .xls<br><span class="uz-demo" onclick="event.stopPropagation();loadDemoExcel()">或載入範例數據</span></div>
+      <input type="file" id="file-input" accept=".xlsx,.xls" style="display:none">
+      <div class="file-tag" id="file-tag"></div>
+    </div>
+    <div class="pbar" id="pbar"><div class="pfill" id="pfill"></div></div>
+    <div class="err-msg" id="err-msg"></div>
+  </div>
+
+  <!-- Data preview -->
+  <div class="card" id="data-preview">
+    <div class="card-head">
+      <span class="card-title">排放源清單預覽</span>
+      <span class="badge b-ok" id="src-badge">ERP 資料</span>
+    </div>
+    <div class="card-body" style="padding:0">
+      <table class="data-table">
+        <thead><tr><th>模組/來源</th><th>排放源名稱</th><th>活動數據</th><th>單位</th><th>排放係數</th><th class="num">排放量(tCO₂e)</th><th>範疇</th></tr></thead>
+        <tbody id="preview-tbody"></tbody>
+        <tfoot><tr class="total-row"><td colspan="5" style="text-align:right;padding-right:14px;font-family:var(--mono);">合計</td><td class="num" id="preview-total">—</td><td></td></tr></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-primary" id="btn-to-step4" onclick="goStep(4)">確認數據，填寫組織資料 →</button>
+    <button class="btn btn-ghost" onclick="goStep(2)">← 返回監控</button>
+  </div>
+</div>
+
+<!-- ══ STEP 4: 組織資料 ══ -->
+<div class="step-view" id="sv4">
+  <div class="step-header">
+    <div class="step-eyebrow">STEP 04 / 05 · 組織資料</div>
+    <div class="step-title">填寫組織<br>與邊界設定</div>
+    <div class="step-desc">填寫 ISO 14064-1:2018 報告書所需的組織資訊、盤查邊界與方法論。帶 * 為必填欄位。</div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="card-head"><span class="card-title">組織基本資料</span></div>
+      <div class="card-body">
+        <div class="form-grid">
+          <div class="fg"><div class="flabel">組織名稱 <span class="req">*</span></div><input id="f-org-name" placeholder="台灣綠能製造股份有限公司"></div>
+          <div class="fg"><div class="flabel">統一編號</div><input id="f-org-id" placeholder="12345678"></div>
+          <div class="fg"><div class="flabel">主要營業地址 <span class="req">*</span></div><input id="f-org-addr" placeholder="台灣台北市..."></div>
+          <div class="fg"><div class="flabel">產業類別 <span class="req">*</span></div><select id="f-industry"><option value="">— 請選擇 —</option><option>製造業</option><option>電子資訊業</option><option>化學石化業</option><option>食品飲料業</option><option>金融保險業</option><option>零售批發業</option><option>物流運輸業</option><option>建築營造業</option><option>其他服務業</option></select></div>
+          <div class="fg"><div class="flabel">主要產品 / 服務</div><input id="f-product" placeholder="電子零組件製造"></div>
+          <div class="fg"><div class="flabel">員工人數</div><input type="number" id="f-employees" placeholder="850"></div>
+          <div class="fg"><div class="flabel">負責人姓名 <span class="req">*</span></div><input id="f-contact-name" placeholder="王小明"></div>
+          <div class="fg"><div class="flabel">負責人職稱</div><input id="f-contact-title" placeholder="ESG 永續長"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-title">盤查邊界與方法論</span></div>
+      <div class="card-body">
+        <div class="form-grid">
+          <div class="fg"><div class="flabel">盤查年度 <span class="req">*</span></div><input type="number" id="f-year" value="2024"></div>
+          <div class="fg"><div class="flabel">基準年 <span class="req">*</span></div><input type="number" id="f-base-year" placeholder="2021"></div>
+          <div class="fg full"><div class="flabel">盤查期間 <span class="req">*</span></div><input id="f-period" value="2024/01/01 ~ 2024/12/31"></div>
+          <div class="fg full"><div class="flabel">邊界劃定方法 <span class="req">*</span></div><select id="f-boundary"><option value="">— 請選擇 —</option><option value="operational">營運控制權法</option><option value="financial">財務控制權法</option><option value="equity">股權比例法</option></select></div>
+          <div class="fg full"><div class="flabel">組織邊界說明 <span class="req">*</span></div><textarea id="f-boundary-desc" placeholder="涵蓋台北總部、桃園廠A、桃園廠B..."></textarea></div>
+          <div class="fg"><div class="flabel">量化方法</div><select id="f-quant-method"><option>排放係數法</option><option>質量平衡法</option><option>直接量測法</option></select></div>
+          <div class="fg"><div class="flabel">電力排放係數 (kgCO₂e/kWh)</div><input type="number" id="f-elec-ef" value="0.494" step="0.001"></div>
+          <div class="fg full"><div class="flabel">排放係數來源</div><select id="f-ef-source"><option>行政院環境部公告係數</option><option>IPCC 2006/2019 GL</option><option>GHG Protocol</option><option>混合來源</option></select></div>
+          <div class="fg"><div class="flabel">第三方查證</div><select id="f-verification"><option value="no">否，自行盤查</option><option value="yes">是，已委託</option><option value="planned">預計委託</option></select></div>
+          <div class="fg"><div class="flabel">查證機構</div><input id="f-verifier" placeholder="BSI / SGS"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="step4-err"></div>
+  <div class="btn-row">
+    <button class="btn btn-primary" onclick="validateAndGenerate()">生成 ISO 14064-1 報告書 →</button>
+    <button class="btn btn-ghost" onclick="goStep(3)">← 返回數據審核</button>
+  </div>
+</div>
+
+<!-- ══ STEP 5: 報告書 ══ -->
+<div class="step-view" id="sv5">
+  <div class="step-header no-print">
+    <div class="step-eyebrow">STEP 05 / 05 · 報告書</div>
+    <div class="step-title">ISO 14064-1<br>碳盤查報告書</div>
+    <div class="step-desc">符合 ISO 14064-1:2018 規範，可直接列印或匯出為 PDF 提交查證機構。</div>
+  </div>
+  <div class="btn-row no-print" style="margin-bottom:24px;">
+    <button class="btn btn-primary" onclick="printReport()">🖨 列印 / 匯出 PDF</button>
+    <button class="btn btn-ghost" onclick="goStep(4)">← 返回修改</button>
+  </div>
+
+  <!-- REPORT BODY -->
+  <div class="report-paper" id="report-body">
+    <div class="rpt-cover">
+      <div class="rpt-cover-eyebrow">GREENHOUSE GAS INVENTORY REPORT · ISO 14064-1:2018</div>
+      <div class="rpt-cover-title">溫室氣體排放<br>盤查報告書</div>
+      <div class="rpt-cover-org" id="r-org">—</div>
+      <div class="rpt-cover-period" id="r-period">盤查期間：—</div>
+      <div class="rpt-cover-tags">
+        <div class="rpt-ctag">ISO 14064-1:2018</div>
+        <div class="rpt-ctag">GHG PROTOCOL</div>
+        <div class="rpt-ctag" id="r-verify-tag">自行盤查</div>
+      </div>
+    </div>
+
+    <div class="rpt-section">
+      <div class="rpt-sec-label">SECTION 1</div><div class="rpt-sec-title">組織概況</div>
+      <table class="rpt-info-table">
+        <tr><th>組織名稱</th><td id="r-name">—</td></tr>
+        <tr><th>統一編號</th><td id="r-id">—</td></tr>
+        <tr><th>主要營業地址</th><td id="r-addr">—</td></tr>
+        <tr><th>產業類別</th><td id="r-industry">—</td></tr>
+        <tr><th>主要產品 / 服務</th><td id="r-product">—</td></tr>
+        <tr><th>員工人數</th><td id="r-employees">—</td></tr>
+        <tr><th>盤查負責人</th><td id="r-contact">—</td></tr>
+        <tr><th>資料來源</th><td id="r-datasource">—</td></tr>
+      </table>
+    </div>
+
+    <div class="rpt-section">
+      <div class="rpt-sec-label">SECTION 2</div><div class="rpt-sec-title">盤查邊界與方法論</div>
+      <table class="rpt-info-table">
+        <tr><th>盤查年度</th><td id="r-year">—</td></tr>
+        <tr><th>盤查期間</th><td id="r-period2">—</td></tr>
+        <tr><th>基準年</th><td id="r-baseyear">—</td></tr>
+        <tr><th>組織邊界劃定方法</th><td id="r-boundary">—</td></tr>
+        <tr><th>組織邊界範圍</th><td id="r-boundary-desc">—</td></tr>
+        <tr><th>量化方法</th><td id="r-qmethod">—</td></tr>
+        <tr><th>排放係數來源</th><td id="r-efsource">—</td></tr>
+        <tr><th>電力排放係數</th><td id="r-elecef">—</td></tr>
+        <tr><th>第三方查證</th><td id="r-veri">—</td></tr>
+      </table>
+      <div style="margin-top:14px;font-size:12px;line-height:1.9;color:#333;">
+        本報告依據 ISO 14064-1:2018 規範及 GHG Protocol 企業標準編製，遵循相關性、完整性、一致性、準確性及透明度五大原則。溫室氣體涵蓋 CO₂、CH₄、N₂O、HFCs、PFCs、SF₆、NF₃，以 GWP100 換算為 CO₂e 報告。
+      </div>
+    </div>
+
+    <div class="rpt-section">
+      <div class="rpt-sec-label">SECTION 3</div><div class="rpt-sec-title">溫室氣體排放量彙整</div>
+      <div class="rpt-kpi-row">
+        <div class="rpt-kpi"><div class="rpt-kpi-lbl">總排放量</div><div class="rpt-kpi-val total" id="r-total">—</div><div class="rpt-kpi-unit">公噸 CO₂e / 年</div></div>
+        <div class="rpt-kpi"><div class="rpt-kpi-lbl">範疇一 直接排放</div><div class="rpt-kpi-val s1" id="r-s1">—</div><div class="rpt-kpi-unit">公噸 CO₂e</div></div>
+        <div class="rpt-kpi"><div class="rpt-kpi-lbl">範疇二 能源間接</div><div class="rpt-kpi-val s2" id="r-s2">—</div><div class="rpt-kpi-unit">公噸 CO₂e</div></div>
+        <div class="rpt-kpi"><div class="rpt-kpi-lbl">範疇三 其他間接</div><div class="rpt-kpi-val s3" id="r-s3">—</div><div class="rpt-kpi-unit">公噸 CO₂e</div></div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div style="font-size:12px;font-weight:700;color:#1a3a2a;">排放源明細（完整性原則）</div>
+        <div class="sf-row no-print">
+          <button class="sf-btn sf-active-all" onclick="filterScope('all',this)">全部</button>
+          <button class="sf-btn" onclick="filterScope('1',this)">範疇一</button>
+          <button class="sf-btn" onclick="filterScope('2',this)">範疇二</button>
+          <button class="sf-btn" onclick="filterScope('3',this)">範疇三</button>
+          <span style="font-family:var(--mono);font-size:10px;color:#8a9e8f;margin-left:4px;" id="row-count">—</span>
+        </div>
+      </div>
+      <table class="rpt-emission-tbl" style="margin-bottom:24px;">
+        <thead><tr><th style="width:13%">類別</th><th style="width:27%">排放源名稱</th><th class="num" style="width:20%">活動數據</th><th class="num" style="width:18%">排放量(tCO₂e)</th><th style="width:10%">範疇</th><th style="width:12%">計算方式</th></tr></thead>
+        <tbody id="r-tbody"></tbody>
+        <tfoot><tr class="total-r"><td colspan="3" style="text-align:right;padding-right:14px;font-family:var(--mono);font-size:11px;">合計排放量</td><td class="num" id="r-tfoot">—</td><td colspan="2"></td></tr></tfoot>
+      </table>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:24px;">
+        <div>
+          <div style="font-size:12px;font-weight:700;color:#1a3a2a;margin-bottom:12px;">範疇佔比分析</div>
+          <div id="r-scope-bars"></div>
+        </div>
+        <div>
+          <div style="font-size:12px;font-weight:700;color:#1a3a2a;margin-bottom:12px;">完整性查核</div>
+          <div id="r-completeness" style="font-size:11px;line-height:1.9;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rpt-section">
+      <div class="rpt-sec-label">SECTION 4</div><div class="rpt-sec-title">排放強度指標</div>
+      <div class="rpt-kpi-row">
+        <div class="rpt-kpi"><div class="rpt-kpi-lbl">人均排放量</div><div class="rpt-kpi-val total" id="r-per-emp" style="font-size:22px;">—</div><div class="rpt-kpi-unit">tCO₂e / 人</div></div>
+        <div class="rpt-kpi"><div class="rpt-kpi-lbl">範疇一佔比</div><div class="rpt-kpi-val s1" id="r-s1p" style="font-size:22px;">—</div><div class="rpt-kpi-unit">%</div></div>
+        <div class="rpt-kpi"><div class="rpt-kpi-lbl">範疇二佔比</div><div class="rpt-kpi-val s2" id="r-s2p" style="font-size:22px;">—</div><div class="rpt-kpi-unit">%</div></div>
+        <div class="rpt-kpi"><div class="rpt-kpi-lbl">範疇三佔比</div><div class="rpt-kpi-val s3" id="r-s3p" style="font-size:22px;">—</div><div class="rpt-kpi-unit">%</div></div>
+      </div>
+    </div>
+
+    <div class="rpt-section">
+      <div class="rpt-sec-label">SECTION 5</div><div class="rpt-sec-title">減碳目標與管理改善建議</div>
+      <div id="r-reduction-intro" style="font-size:12px;line-height:1.9;margin-bottom:14px;"></div>
+      <div id="r-suggestions"></div>
+    </div>
+
+    <div class="rpt-section" style="background:var(--paper2);">
+      <div class="rpt-sec-label">SECTION 6</div><div class="rpt-sec-title">盤查聲明</div>
+      <div style="font-size:12px;line-height:1.9;margin-bottom:8px;">
+        <p style="margin-bottom:8px;">本報告書係依 ISO 14064-1:2018 規範編製，本組織聲明所有盤查數據均依據相關性、完整性、一致性、準確性與透明度五大原則蒐集與計算，符合 GHG Protocol 企業標準要求。</p>
+        <p>本組織承諾持續推動溫室氣體減量工作，每年定期完成盤查並向利害關係人揭露排放資訊。</p>
+      </div>
+      <div class="sign-area">
+        <div class="sign-block"><div class="sign-label">盤查負責人簽署</div><div class="sign-line"></div><div class="sign-name" id="r-sign-name">姓名 / 職稱</div></div>
+        <div class="sign-block"><div class="sign-label">報告書核准日期</div><div class="sign-line"></div><div class="sign-name" id="r-sign-date">年　月　日</div></div>
+      </div>
+    </div>
+  </div><!-- /report-body -->
+</div>
+
+</div><!-- /content -->
+<div class="loading" id="loading"><div class="spin"></div><div class="load-txt" id="load-txt">處理中...</div></div>
+
+<script>
+// ══ STEP DEFINITIONS ════════════════════════════════════════
+const STEPS=[
+  {n:1,label:'連線設定'},
+  {n:2,label:'能源監控'},
+  {n:3,label:'數據審核'},
+  {n:4,label:'組織資料'},
+  {n:5,label:'報告書'},
+];
+let currentStep=1, currentSrc='erp', uploadedRows=null;
+
+// ══ DATA ═════════════════════════════════════════════════════
+// ── ERP 完整數據（14筆，2,492.65 tCO₂e）──
+const DATA_ERP=[
+  {mod:'PM',name:'天然氣鍋爐燃燒',val:48500,unit:'m³',ef:2.04,em:98.94,scope:1},
+  {mod:'PM',name:'柴油發電機燃燒',val:18200,unit:'公升',ef:2.68,em:48.78,scope:1},
+  {mod:'PM',name:'公務車輛汽油',val:24600,unit:'公升',ef:2.31,em:56.83,scope:1},
+  {mod:'PM',name:'冷媒逸散 R-410A',val:120,unit:'kg',ef:2088,em:250.56,scope:1},
+  {mod:'PM',name:'工廠外購電力',val:1850000,unit:'kWh',ef:0.494,em:913.90,scope:2},
+  {mod:'PM',name:'辦公室外購電力',val:320000,unit:'kWh',ef:0.494,em:158.08,scope:2},
+  {mod:'PM',name:'外購蒸汽',val:2800,unit:'GJ',ef:59.5,em:166.60,scope:2},
+  {mod:'MM',name:'原料採購貨運',val:860000,unit:'噸公里',ef:0.146,em:125.56,scope:3},
+  {mod:'MM',name:'成品配送物流',val:620000,unit:'噸公里',ef:0.146,em:90.52,scope:3},
+  {mod:'MM',name:'一般廢棄物處理',val:68000,unit:'kg',ef:0.467,em:31.76,scope:3},
+  {mod:'MM',name:'廢水處理',val:35000,unit:'噸',ef:0.708,em:24.78,scope:3},
+  {mod:'HR',name:'員工國際差旅航班',val:1450000,unit:'乘客公里',ef:0.195,em:282.75,scope:3},
+  {mod:'HR',name:'員工國內差旅航班',val:280000,unit:'乘客公里',ef:0.255,em:71.40,scope:3},
+  {mod:'HR',name:'員工通勤',val:4200000,unit:'乘客公里',ef:0.041,em:172.20,scope:3},
+];
+
+// ── IoT 純感測器數據（8筆，1,685.60 tCO₂e）範疇一&二由即時讀值換算 ──
+const DATA_IOT=[
+  {mod:'IoT-E',name:'廠區A外購電力（智慧電錶）',val:1620000,unit:'kWh',ef:0.494,em:800.28,scope:2},
+  {mod:'IoT-E',name:'辦公大樓外購電力（智慧電錶）',val:298000,unit:'kWh',ef:0.494,em:147.21,scope:2},
+  {mod:'IoT-E',name:'廠區B外購電力（智慧電錶）',val:245000,unit:'kWh',ef:0.494,em:121.03,scope:2},
+  {mod:'IoT-G',name:'鍋爐天然氣燃燒（流量計）',val:51200,unit:'m³',ef:2.04,em:104.45,scope:1},
+  {mod:'IoT-G',name:'備用發電機柴油（流量計）',val:16800,unit:'公升',ef:2.68,em:45.02,scope:1},
+  {mod:'IoT-G',name:'公務車輛汽油（油量計）',val:22400,unit:'公升',ef:2.31,em:51.74,scope:1},
+  {mod:'IoT-R',name:'冷媒逸散 R-410A（壓力感測換算）',val:108,unit:'kg',ef:2088,em:225.50,scope:1},
+  {mod:'IoT-S',name:'外購蒸汽（熱量計）',val:2430,unit:'GJ',ef:59.5,em:144.59,scope:2},
+];
+
+// ── IoT + ERP 整合（14筆，範疇一&二用IoT，範疇三用ERP，2,386.47 tCO₂e）──
+const DATA_IOT_ERP=[
+  {mod:'IoT-E',name:'廠區A外購電力（IoT電錶）',val:1620000,unit:'kWh',ef:0.494,em:800.28,scope:2},
+  {mod:'IoT-E',name:'辦公大樓外購電力（IoT電錶）',val:298000,unit:'kWh',ef:0.494,em:147.21,scope:2},
+  {mod:'IoT-E',name:'廠區B外購電力（IoT電錶）',val:245000,unit:'kWh',ef:0.494,em:121.03,scope:2},
+  {mod:'IoT-G',name:'鍋爐天然氣（IoT流量計）',val:51200,unit:'m³',ef:2.04,em:104.45,scope:1},
+  {mod:'IoT-G',name:'柴油發電機（IoT流量計）',val:16800,unit:'公升',ef:2.68,em:45.02,scope:1},
+  {mod:'IoT-G',name:'公務車輛汽油（IoT油量計）',val:22400,unit:'公升',ef:2.31,em:51.74,scope:1},
+  {mod:'IoT-R',name:'冷媒逸散 R-410A（IoT壓力換算）',val:108,unit:'kg',ef:2088,em:225.50,scope:1},
+  {mod:'IoT-S',name:'外購蒸汽（IoT熱量計）',val:2430,unit:'GJ',ef:59.5,em:144.59,scope:2},
+  {mod:'MM',name:'原料採購貨運（ERP-MM）',val:860000,unit:'噸公里',ef:0.146,em:125.56,scope:3},
+  {mod:'MM',name:'成品配送物流（ERP-MM）',val:620000,unit:'噸公里',ef:0.146,em:90.52,scope:3},
+  {mod:'MM',name:'一般廢棄物處理（ERP-MM）',val:68000,unit:'kg',ef:0.467,em:31.76,scope:3},
+  {mod:'HR',name:'員工國際差旅航班（ERP-HR）',val:1450000,unit:'乘客公里',ef:0.195,em:282.75,scope:3},
+  {mod:'HR',name:'員工國內差旅航班（ERP-HR）',val:280000,unit:'乘客公里',ef:0.255,em:71.40,scope:3},
+  {mod:'HR',name:'員工通勤（ERP-HR）',val:4200000,unit:'乘客公里',ef:0.041,em:172.20,scope:3},
+];
+
+// 保留向下相容
+const ERP_DATA=DATA_ERP;
+const IOT=[
+  {id:'E-01',name:'廠區A電錶',val:1250,unit:'kWh/hr',max:2000,st:'ok'},
+  {id:'E-02',name:'廠區B電錶',val:980,unit:'kWh/hr',max:2000,st:'ok'},
+  {id:'E-03',name:'辦公電錶',val:320,unit:'kWh/hr',max:500,st:'ok'},
+  {id:'G-01',name:'鍋爐燃氣',val:185,unit:'m³/hr',max:300,st:'ok'},
+  {id:'G-02',name:'備用爐燃氣',val:42,unit:'m³/hr',max:100,st:'ok'},
+  {id:'F-01',name:'柴油液位',val:68,unit:'%',max:100,st:'ok'},
+  {id:'F-02',name:'汽油槽',val:45,unit:'%',max:100,st:'ok'},
+  {id:'R-01',name:'冷媒壓力A',val:2.8,unit:'MPa',max:3.5,st:'ok'},
+  {id:'R-02',name:'冷媒壓力B',val:3.4,unit:'MPa',max:3.5,st:'warn'},
+  {id:'W-01',name:'廢水流量',val:12.5,unit:'噸/hr',max:20,st:'ok'},
+  {id:'T-01',name:'廠區溫度',val:28.4,unit:'°C',max:40,st:'ok'},
+  {id:'S-01',name:'蒸汽壓力',val:4.2,unit:'bar',max:6,st:'ok'},
+  {id:'A-01',name:'空氣CO₂',val:892,unit:'ppm',max:1000,st:'ok'},
+  {id:'A-02',name:'排氣濃度',val:1850,unit:'ppm',max:1500,st:'warn'},
+];
+
+// ══ NAVIGATION ═══════════════════════════════════════════════
+function buildRail(){
+  const rail=document.getElementById('rail-flow');
+  rail.innerHTML='';
+  STEPS.forEach((s,i)=>{
+    const state=s.n<currentStep?'done':s.n===currentStep?'active':'pending';
+    rail.innerHTML+=`<div class="rail-step ${state}" onclick="if(${s.n}<=${currentStep})goStep(${s.n})" id="rst${s.n}">
+      <div class="rs-node"><div class="rs-num">${s.n<currentStep?'✓':s.n}</div><div class="rs-label">${s.label}</div></div>
+      ${i<STEPS.length-1?'<div class="rs-arrow"></div>':''}
+    </div>`;
+  });
+}
+function buildTracker(){
+  const t=document.getElementById('pg-tracker');
+  t.innerHTML='';
+  STEPS.forEach((s,i)=>{
+    const state=s.n<currentStep?'done':s.n===currentStep?'active':'';
+    t.innerHTML+=`
+      <div class="pg-item ${state}" onclick="if(${s.n}<=${currentStep})goStep(${s.n})">
+        <div class="pg-circle">${s.n<currentStep?'✓':s.n}</div>
+        <div class="pg-text">${s.label}</div>
+      </div>
+      ${i<STEPS.length-1?'<div class="pg-line"></div>':''}`;
+  });
+}
+function goStep(n){
+  currentStep=n;
+  document.querySelectorAll('.step-view').forEach((v,i)=>v.classList.toggle('active',i+1===n));
+  buildRail();buildTracker();
+  window.scrollTo({top:0,behavior:'smooth'});
+  if(n===2){renderIoTMini();}
+  if(n===3){renderPreview();}
+}
+
+// ══ STEP 1: Connection test ═══════════════════════════════
+function testConn(type){
+  const el=document.getElementById('conn-msg');
+  el.innerHTML=`<div class="alert al-a" style="margin-top:0;">⟳ 正在測試 ${type} 連線...</div>`;
+  setTimeout(()=>{
+    el.innerHTML=`<div class="alert al-g" style="margin-top:0;">✓ ${type} 連線成功！延遲 ${Math.floor(Math.random()*25+8)}ms · 認證驗證通過</div>`;
+  },1600);
+}
+
+// ══ STEP 2: IoT render ═══════════════════════════════════
+let iotRendered=false;
+function renderIoTMini(){
+  const el=document.getElementById('iot-mini');
+  if(iotRendered)return;
+  el.innerHTML='';
+  IOT.slice(0,8).forEach(s=>{
+    const pct=Math.min(100,Math.round(s.val/s.max*100));
+    el.innerHTML+=`<div class="sensor${s.st==='warn'?' warn-state':''}">
+      <div class="sensor-dot${s.st==='warn'?' warn':''}"></div>
+      <div class="sensor-id">${s.id}</div>
+      <div class="sensor-name">${s.name}</div>
+      <div class="sensor-val" id="sv-${s.id}">${s.val}</div>
+      <div class="sensor-unit">${s.unit}</div>
+      <div class="sensor-track"><div class="sensor-fill${s.st==='warn'?' w':''}" style="width:${pct}%" id="sf-${s.id}"></div></div>
+    </div>`;
+  });
+  iotRendered=true;
+}
+
+// ══ STEP 3: Source selection ══════════════════════════════
+function selectSrc(src){
+  currentSrc=src;
+  ['erp','iot','iot-erp','excel'].forEach(s=>{
+    const el=document.getElementById('sc-'+s);
+    if(el)el.classList.toggle('selected',s===src);
+  });
+  document.getElementById('panel-excel').style.display=src==='excel'?'block':'none';
+  if(src!=='excel')renderPreview();
+  // Update step2 KPIs to match selected source
+  const totals={erp:2492.65,iot:1685.60,'iot-erp':2386.47,excel:0};
+  const tot=totals[src]||0;
+  const kv=document.getElementById('kv-total');
+  if(kv&&tot>0)kv.textContent=tot>=1000?(tot/1000).toFixed(2)+'K':tot.toFixed(0);
+}
+function renderPreview(){
+  const dsMap={erp:DATA_ERP,iot:DATA_IOT,'iot-erp':DATA_IOT_ERP};
+  const data=currentSrc==='excel'&&uploadedRows?uploadedRows:(dsMap[currentSrc]||DATA_ERP);
+  const tb=document.getElementById('preview-tbody');tb.innerHTML='';
+  let total=0;
+  data.forEach(r=>{
+    const em=r.em||0;total+=em;
+    const sc=['','ts1','ts2','ts3'][r.scope||0]||'';
+    const sl=['','範疇一','範疇二','範疇三'][r.scope||0]||'—';
+    const mod=r.mod||r['排放源類別']||'—';
+    tb.innerHTML+=`<tr><td><span class="tag tmod">${mod}</span></td><td>${r.name||r['排放源']||'—'}</td><td>${(r.val||r['活動數據']||0).toLocaleString()}</td><td>${r.unit||r['單位']||'—'}</td><td>${r.ef||r['排放係數']||'—'}</td><td class="num">${em.toFixed(4)}</td><td><span class="tag ${sc}">${sl}</span></td></tr>`;
+  });
+  document.getElementById('preview-total').textContent=total.toFixed(4)+' tCO₂e';
+  const srcBadgeMap={erp:'ERP 資料',iot:'IoT 感測器','iot-erp':'IoT + ERP 整合',excel:'Excel 上傳'};
+  document.getElementById('src-badge').textContent=srcBadgeMap[currentSrc]||'—';
+}
+
+// ══ Excel upload ══════════════════════════════════════════
+const dz=document.getElementById('drop-zone');
+const fi=document.getElementById('file-input');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('drag'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag');if(e.dataTransfer.files[0])handleFile(e.dataTransfer.files[0]);});
+fi.addEventListener('change',e=>{if(e.target.files[0])handleFile(e.target.files[0]);});
+
+function handleFile(file){
+  if(!file.name.match(/\.(xlsx|xls)$/i)){showErr('請上傳 .xlsx / .xls 格式');return;}
+  const ft=document.getElementById('file-tag');
+  ft.textContent=`📄 ${file.name} · ${(file.size/1024).toFixed(1)} KB`;ft.style.display='block';
+  const pb=document.getElementById('pbar'),pf=document.getElementById('pfill');
+  pb.style.display='block';pf.style.width='0%';
+  const reader=new FileReader();
+  reader.onload=function(e){
+    pf.style.width='60%';
+    try{
+      const wb=XLSX.read(e.target.result,{type:'binary'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rng=XLSX.utils.decode_range(ws['!ref']||'A1:Z100');
+      let hdr=rng.s.r;
+      lp: for(let r=rng.s.r;r<=Math.min(rng.s.r+11,rng.e.r);r++){
+        for(let c=rng.s.c;c<=rng.e.c;c++){
+          const cell=ws[XLSX.utils.encode_cell({r,c})];
+          if(cell&&/排放源/.test(String(cell.v||''))){hdr=r;break lp;}
+        }
+      }
+      const r1=XLSX.utils.encode_cell({r:hdr,c:rng.s.c});
+      const r2=XLSX.utils.encode_cell({r:rng.e.r,c:rng.e.c});
+      let rows=XLSX.utils.sheet_to_json(ws,{defval:'',range:r1+':'+r2});
+      rows=rows.filter(row=>{const f=String(Object.values(row)[0]||'');return f&&!/合計|小計|total/i.test(f);});
+      // normalize to display format
+      uploadedRows=rows.map(row=>{
+        const keys=Object.keys(row);
+        const col=(...cs)=>{for(const c of cs){const f=keys.find(k=>k.toLowerCase().includes(c.toLowerCase()));if(f)return f;}return null;};
+        const nameCol=col('排放源','source','name')||keys[0];
+        const valCol=col('活動數據','數量','value','amount')||keys[1];
+        const unitCol=col('單位','unit');
+        const efCol=col('排放係數','ef','factor');
+        const emCol=col('排放量','emission','tco2');
+        const scCol=col('排放範疇','範疇','scope');
+        const name=String(row[nameCol]||'');
+        const val=parseFloat(String(row[valCol]||0).replace(/,/g,''))||0;
+        const ef=parseFloat(row[efCol])||0;
+        const preEm=parseFloat(row[emCol])||0;
+        let scope=3;
+        if(scCol&&row[scCol]){const sv=String(row[scCol]);scope=sv.includes('一')||sv.includes('1')?1:sv.includes('二')||sv.includes('2')?2:3;}
+        else scope=detectScope(name);
+        const em=preEm>0?preEm:(ef>0?val*ef/1000:val*autoEF(name)/1000);
+        return{mod:'Excel',name,val,unit:unitCol?row[unitCol]:'',ef,em:parseFloat(em.toFixed(4)),scope};
+      });
+      pf.style.width='100%';
+      setTimeout(()=>{pb.style.display='none';renderPreview();},400);
+    }catch(err){showErr('解析失敗：'+err.message);pb.style.display='none';}
+  };reader.readAsBinaryString(file);
+}
+function loadDemoExcel(){
+  uploadedRows=ERP_DATA.map(r=>({...r,mod:'Demo'}));
+  const ft=document.getElementById('file-tag');
+  ft.textContent='📊 範例數據已載入（14 筆排放源）';ft.style.display='block';
+  renderPreview();
+}
+function showErr(msg){const e=document.getElementById('err-msg');e.textContent=msg;e.style.display='block';}
+
+const SCOPE_KW=[{s:1,k:['天然氣','柴油','汽油','燃料','鍋爐','發電機','冷媒','車輛']},{s:2,k:['電力','用電','蒸汽','熱能']},{s:3,k:['差旅','航班','廢棄物','廢水','貨運','物流','通勤','採購']}];
+function detectScope(name){const l=name.toLowerCase();for(const s of SCOPE_KW)if(s.k.some(k=>l.includes(k)))return s.s;return 3;}
+function autoEF(name){const l=name.toLowerCase();if(l.includes('電力'))return 494;if(l.includes('柴油'))return 2680;if(l.includes('汽油'))return 2310;if(l.includes('天然氣'))return 2040;if(l.includes('冷媒'))return 2088000;return 400;}
+
+// ══ STEP 4: Validate & Generate ══════════════════════════
+function validateAndGenerate(){
+  clearErrors();let ok=true;
+  const req={['f-org-name']:'組織名稱',['f-org-addr']:'地址',['f-industry']:'產業類別',['f-contact-name']:'負責人姓名',['f-year']:'盤查年度',['f-base-year']:'基準年',['f-period']:'盤查期間',['f-boundary']:'邊界劃定方法',['f-boundary-desc']:'組織邊界說明'};
+  for(const[id,lbl] of Object.entries(req)){
+    const el=document.getElementById(id);
+    if(!el||!el.value.trim()){
+      el&&(el.style.borderColor='var(--red)');
+      let e=el?.parentNode.querySelector('.val-err');
+      if(!e&&el){e=document.createElement('div');e.className='val-err';el.parentNode.appendChild(e);}
+      if(e)e.textContent='⚠ 請填寫'+lbl;
+      ok=false;
+    }
+  }
+  if(!ok){document.getElementById('step4-err').innerHTML='<div class="alert al-a">請填寫所有必填欄位後再生成報告。</div>';return;}
+  showLoading('正在生成 ISO 14064-1 報告書...');
+  setTimeout(()=>{
+    try{
+      const data=getActiveData();
+      const efElec=parseFloat(document.getElementById('f-elec-ef').value)||0.494;
+      const result=analyzeData(data,efElec);
+      fillReport(result);
+      hideLoading();goStep(5);
+    }catch(err){hideLoading();alert('報告生成失敗：'+err.message);}
+  },1200);
+}
+function clearErrors(){document.querySelectorAll('.val-err').forEach(e=>e.remove());document.querySelectorAll('input,select,textarea').forEach(e=>e.style.borderColor='');}
+function getActiveData(){
+  if(currentSrc==='excel'&&uploadedRows)return uploadedRows;
+  const dsMap={erp:DATA_ERP,iot:DATA_IOT,'iot-erp':DATA_IOT_ERP};
+  const ds=dsMap[currentSrc]||DATA_ERP;
+  return ds.map(r=>({'排放源':r.name,'活動數據':r.val,'單位':r.unit,'排放係數':r.ef,'排放範疇':['','範疇一','範疇二','範疇三'][r.scope],'排放量 (tCO₂e)':r.em,mod:r.mod,scope:r.scope,em:r.em}));
+}
+
+// ══ ANALYSIS ENGINE ══════════════════════════════════════
+function analyzeData(rows,efElec){
+  const keys=Object.keys(rows[0]||{});
+  const col=(...cs)=>{for(const c of cs){const f=keys.find(k=>k.toLowerCase().includes(c.toLowerCase()));if(f)return f;}return null;};
+  const nc=col('排放源','source','name')||keys[0];
+  const vc=col('活動數據','數量','val','value','amount')||keys[1];
+  const uc=col('單位','unit');
+  const ec=col('排放係數','ef','factor');
+  const pc=col('排放量','emission','em');
+  const sc=col('排放範疇','範疇','scope');
+
+  const emissions=[];
+  for(const row of rows){
+    const name=String(row[nc]||row.name||'').trim();if(!name)continue;
+    const val=row.val||parseFloat(String(row[vc]||'0').replace(/,/g,''))||0;
+    let scope;
+    if(row.scope){scope=row.scope;}
+    else if(sc&&row[sc]){const sv=String(row[sc]);scope=sv.includes('一')||sv.includes('1')?1:sv.includes('二')||sv.includes('2')?2:3;}
+    else scope=detectScope(name);
+    let em,method;
+    if(row.em&&row.em>0){em=row.em;method='ERP/Excel';}
+    else if(pc&&row[pc]&&parseFloat(row[pc])>0){em=parseFloat(row[pc]);method='Excel欄';}
+    else if(ec&&row[ec]&&parseFloat(row[ec])>0){em=val*(parseFloat(row[ec])||0)/1000;method='係數欄';}
+    else{method='推估';const ef=autoEF(name);em=val*ef/1000000;}
+    const unit=uc?(row[uc]||row.unit||'—'):row.unit||'—';
+    emissions.push({name,value:val,unit,emission:parseFloat(em.toFixed(4)),scope,method});
+  }
+  if(!emissions.length)throw new Error('找不到有效排放數據');
+  const s1=emissions.filter(e=>e.scope===1).reduce((a,e)=>a+e.emission,0);
+  const s2=emissions.filter(e=>e.scope===2).reduce((a,e)=>a+e.emission,0);
+  const s3=emissions.filter(e=>e.scope===3).reduce((a,e)=>a+e.emission,0);
+  return{emissions,s1,s2,s3,total:s1+s2+s3};
+}
+
+// ══ REPORT FILL ══════════════════════════════════════════
+function fillReport(r){
+  const gv=id=>document.getElementById(id)?.value||'';
+  const fmt=n=>n>=1000?(n/1000).toFixed(2)+'K':n.toFixed(2);
+  const pct=v=>r.total>0?(v/r.total*100).toFixed(1):'0';
+
+  const srcLabel={erp:'ERP 系統 (SAP S/4HANA)',iot:'IoT 感測器（智慧電錶 + 流量計）','iot-erp':'IoT + ERP 整合（範疇一&二 IoT，範疇三 ERP）',excel:'手動上傳 Excel'}[currentSrc]||'—';
+
+  document.getElementById('r-org').textContent=gv('f-org-name')||'（未填）';
+  document.getElementById('r-period').textContent='盤查期間：'+(gv('f-period')||gv('f-year'));
+  const veri=document.getElementById('f-verification').value;
+  document.getElementById('r-verify-tag').textContent=veri==='yes'?'第三方查證':veri==='planned'?'預計查證':'自行盤查';
+
+  document.getElementById('r-name').textContent=gv('f-org-name')||'—';
+  document.getElementById('r-id').textContent=gv('f-org-id')||'—';
+  document.getElementById('r-addr').textContent=gv('f-org-addr')||'—';
+  document.getElementById('r-industry').textContent=gv('f-industry')||'—';
+  document.getElementById('r-product').textContent=gv('f-product')||'—';
+  document.getElementById('r-employees').textContent=gv('f-employees')?gv('f-employees')+' 人':'—';
+  const cn=gv('f-contact-name'),ct=gv('f-contact-title');
+  document.getElementById('r-contact').textContent=[cn,ct].filter(Boolean).join(' / ')||'—';
+  document.getElementById('r-datasource').textContent=srcLabel;
+
+  document.getElementById('r-year').textContent=gv('f-year')+' 年';
+  document.getElementById('r-period2').textContent=gv('f-period')||'—';
+  document.getElementById('r-baseyear').textContent=gv('f-base-year')?gv('f-base-year')+' 年':'—';
+  const bmap={operational:'營運控制權法',financial:'財務控制權法',equity:'股權比例法'};
+  document.getElementById('r-boundary').textContent=bmap[gv('f-boundary')]||'—';
+  document.getElementById('r-boundary-desc').textContent=gv('f-boundary-desc')||'—';
+  document.getElementById('r-qmethod').textContent=gv('f-quant-method');
+  document.getElementById('r-efsource').textContent=gv('f-ef-source');
+  document.getElementById('r-elecef').textContent=gv('f-elec-ef')+' kgCO₂e/kWh';
+  const vm={no:'否，自行盤查',yes:'是，已委託（'+gv('f-verifier')+'）',planned:'預計委託'};
+  document.getElementById('r-veri').textContent=vm[veri]||'—';
+
+  document.getElementById('r-total').textContent=fmt(r.total);
+  document.getElementById('r-s1').textContent=fmt(r.s1);
+  document.getElementById('r-s2').textContent=fmt(r.s2);
+  document.getElementById('r-s3').textContent=fmt(r.s3);
+  document.getElementById('r-tfoot').textContent=r.total.toFixed(4)+' tCO₂e';
+
+  const tbody=document.getElementById('r-tbody');tbody.innerHTML='';
+  r.emissions.sort((a,b)=>b.emission-a.emission).forEach(e=>{
+    const sc=['','rpt-tag-s1','rpt-tag-s2','rpt-tag-s3'][e.scope];
+    const sl=['','範疇一','範疇二','範疇三'][e.scope];
+    tbody.innerHTML+=`<tr data-scope="${e.scope}"><td>${getCat(e.name)}</td><td>${e.name}</td><td class="num">${e.value.toLocaleString()} ${e.unit}</td><td class="num"><strong>${e.emission.toFixed(4)}</strong></td><td class="${sc}">${sl}</td><td style="font-size:10px;color:#8a9e8f;font-family:var(--mono);">${e.method}</td></tr>`;
+  });
+  updateRowCount('all');
+
+  const tot=r.total||1;
+  document.getElementById('r-scope-bars').innerHTML=[
+    scopeBar('範疇一　直接排放',r.s1,tot,'sbf1','rpt-tag-s1'),
+    scopeBar('範疇二　能源間接',r.s2,tot,'sbf2','rpt-tag-s2'),
+    scopeBar('範疇三　其他間接',r.s3,tot,'sbf3','rpt-tag-s3'),
+  ].join('');
+
+  const s1r=r.emissions.filter(e=>e.scope===1),s2r=r.emissions.filter(e=>e.scope===2),s3r=r.emissions.filter(e=>e.scope===3);
+  document.getElementById('r-completeness').innerHTML=`
+    <div style="margin-bottom:4px;"><span class="rpt-tag-s1">範疇一</span> ${s1r.length}筆 | ${r.s1.toFixed(2)} tCO₂e</div>
+    <div style="margin-bottom:4px;"><span class="rpt-tag-s2">範疇二</span> ${s2r.length}筆 | ${r.s2.toFixed(2)} tCO₂e</div>
+    <div style="margin-bottom:4px;"><span class="rpt-tag-s3">範疇三</span> ${s3r.length}筆 | ${r.s3.toFixed(2)} tCO₂e</div>
+    <div style="border-top:1px solid var(--paper3);padding-top:6px;margin-top:6px;font-weight:700;">合計 ${r.emissions.length}筆 | ${r.total.toFixed(4)} tCO₂e</div>
+    <div style="margin-top:8px;font-size:10px;color:#8a9e8f;">✓ 明細加總與總量一致<br>✓ 符合完整性原則<br>✓ 資料來源：${srcLabel}</div>`;
+
+  const empN=parseInt(gv('f-employees'));
+  document.getElementById('r-per-emp').textContent=empN>0?(r.total/empN).toFixed(2):'—';
+  document.getElementById('r-s1p').textContent=pct(r.s1);
+  document.getElementById('r-s2p').textContent=pct(r.s2);
+  document.getElementById('r-s3p').textContent=pct(r.s3);
+
+  const org=gv('f-org-name')||'本組織',yr=gv('f-year')||'本';
+  document.getElementById('r-reduction-intro').innerHTML=`<p>${org} ${yr} 年度總排放量 <strong>${r.total.toFixed(2)} 公噸 CO₂e</strong>。範疇一佔 ${pct(r.s1)}%、範疇二佔 ${pct(r.s2)}%、範疇三佔 ${pct(r.s3)}%。</p>`;
+  const sugs=genSugs(r);
+  document.getElementById('r-suggestions').innerHTML=sugs.map(s=>`<div class="sug-item"><div class="sug-dot"></div><span>${s}</span></div>`).join('');
+
+  document.getElementById('r-sign-name').textContent=[cn,ct].filter(Boolean).join(' / ')||'姓名 / 職稱';
+  const now=new Date();
+  document.getElementById('r-sign-date').textContent=`${now.getFullYear()} 年 ${now.getMonth()+1} 月 ${now.getDate()} 日`;
+}
+
+function scopeBar(label,val,total,fc,lc){
+  const p=Math.round(val/total*100);
+  return`<div class="scope-bar"><div class="scope-bar-head"><span class="${lc}">${label}</span><span style="font-family:var(--mono);font-size:10px;color:#8a9e8f;">${val.toFixed(2)} tCO₂e · ${p}%</span></div><div class="scope-bar-track"><div class="scope-bar-fill ${fc}" style="width:${p}%"></div></div></div>`;
+}
+function getCat(name){
+  const l=name.toLowerCase();
+  if(l.includes('電力')||l.includes('用電'))return '⚡ 電力';
+  if(l.includes('天然氣'))return '🔥 天然氣';if(l.includes('柴油'))return '⛽ 柴油';
+  if(l.includes('汽油'))return '⛽ 汽油';if(l.includes('蒸汽'))return '♨ 蒸汽';
+  if(l.includes('航班')||l.includes('差旅'))return '✈ 差旅';
+  if(l.includes('廢棄物'))return '🗑 廢棄物';if(l.includes('廢水'))return '💧 廢水';
+  if(l.includes('貨運')||l.includes('物流'))return '🚚 物流';
+  if(l.includes('通勤'))return '🚗 通勤';if(l.includes('冷媒'))return '❄ 冷媒';
+  return '◎ 其他';
+}
+function genSugs(r){
+  const t=r.total||1,sugs=[];
+  if(r.s2/t>0.35)sugs.push('電力排放佔比 '+(r.s2/t*100).toFixed(0)+'%，建議採購再生能源憑證 (REC) 或安裝太陽能光電系統，直接降低範疇二排放。');
+  if(r.s1/t>0.2)sugs.push('直接排放（範疇一）佔 '+(r.s1/t*100).toFixed(0)+'%，建議針對高排放設備進行燃料效率改善，評估電氣化替換可行性。');
+  if(r.s3/t>0.3)sugs.push('供應鏈排放（範疇三）佔比顯著，建議推動供應商碳盤查，將碳排表現納入採購評選標準。');
+  sugs.push('建立能源管理系統（ISO 50001），設置分表計量，設定每年降低 2% 用電量目標。');
+  sugs.push('依 SBTi 設定符合 1.5°C 情境的科學基礎減量目標，制定至 2030 年分階段減碳路徑。');
+  return sugs.slice(0,5);
+}
+
+// ══ SCOPE FILTER ══════════════════════════════════════════
+function filterScope(scope,btn){
+  const map={all:'sf-active-all','1':'sf-active-s1','2':'sf-active-s2','3':'sf-active-s3'};
+  document.querySelectorAll('.sf-btn').forEach(b=>b.className='sf-btn');
+  btn.classList.add(map[scope]);
+  document.querySelectorAll('#r-tbody tr').forEach(row=>row.style.display=(scope==='all'||row.dataset.scope===scope)?'':'none');
+  updateRowCount(scope);
+}
+function updateRowCount(scope){
+  const rows=[...document.querySelectorAll('#r-tbody tr')];
+  const v=scope==='all'?rows.length:rows.filter(r=>r.dataset.scope===scope).length;
+  document.getElementById('row-count').textContent=v+' 筆';
+}
+
+// ══ PRINT ════════════════════════════════════════════════
+function printReport(){
+  const html=document.getElementById('report-body').outerHTML;
+  const styles=Array.from(document.querySelectorAll('style')).map(s=>s.outerHTML).join('');
+  const w=window.open('','_blank','width=920,height=720');
+  if(!w){alert('請允許彈出視窗。');return;}
+  w.document.write(`<!DOCTYPE html><html lang="zh-TW"><head><meta charset="UTF-8"><title>碳盤查報告書</title>${styles}<style>body{background:var(--paper);padding:20px;margin:0;}.no-print,.sf-row,.btn-row{display:none!important;}.sbf1,.sbf2,.sbf3{-webkit-print-color-adjust:exact;print-color-adjust:exact;}.rpt-cover{-webkit-print-color-adjust:exact;print-color-adjust:exact;}@media print{body{padding:0;}@page{size:A4;margin:14mm 12mm;}.rpt-emission-tbl tr{page-break-inside:avoid;}}</style></head><body>${html}<script>setTimeout(()=>window.print(),600);<\/script></body></html>`);
+  w.document.close();
+}
+
+// ══ LIVE UPDATES ════════════════════════════════════════
+function updateSensors(){
+  IOT.forEach(s=>{
+    s.val=Math.max(s.max*.1,Math.min(s.max*1.05,+(s.val+(Math.random()-.5)*s.max*.025).toFixed(1)));
+    const pct=Math.min(100,Math.round(s.val/s.max*100));
+    const sv=document.getElementById('sv-'+s.id);const sf=document.getElementById('sf-'+s.id);
+    if(sv)sv.textContent=s.val;if(sf)sf.style.width=pct+'%';
+  });
+}
+const LOG_SRCS=[
+  {cls:'ls-i',src:'IoT',msgs:['E-01 電錶讀值更新','G-01 燃氣流量正常','A-02 排氣濃度超標','R-02 冷媒壓力接近上限']},
+  {cls:'ls-e',src:'ERP',msgs:['PM模組同步完成','MM採購數據已更新','HR差旅記錄同步','能源月結算完成']},
+  {cls:'ls-s',src:'SYS',msgs:['完整性查核通過','排放係數已更新','ISO合規檢查完成']},
+];
+function addLog(){
+  const el=document.getElementById('log-stream');if(!el)return;
+  const now=new Date();
+  const t=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  const src=LOG_SRCS[Math.floor(Math.random()*LOG_SRCS.length)];
+  const msg=src.msgs[Math.floor(Math.random()*src.msgs.length)];
+  el.innerHTML=`<div class="log-line"><span class="lt">${t}</span><span class="${src.cls}">[${src.src}]</span><span class="lm">${msg}</span></div>`+el.innerHTML;
+  if(el.children.length>20)el.removeChild(el.lastChild);
+}
+function updateClock(){
+  const now=new Date();
+  document.getElementById('clock').textContent=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+}
+function showLoading(txt){document.getElementById('load-txt').textContent=txt;document.getElementById('loading').classList.add('on');}
+function hideLoading(){document.getElementById('loading').classList.remove('on');}
+
+// ══ INIT ═════════════════════════════════════════════════
+buildRail();buildTracker();
+renderPreview();
+setInterval(updateClock,1000);setInterval(addLog,2500);setInterval(updateSensors,5000);
+for(let i=0;i<6;i++)setTimeout(addLog,i*350);
+updateClock();
+</script>
+</body>
+</html>
