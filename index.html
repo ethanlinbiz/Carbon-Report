@@ -206,22 +206,10 @@ body::after{
 .footer a{color:var(--fog);text-decoration:none;}
 .footer a:hover{color:var(--moss3);}
 
-/* ── ERP card ── */
-.card-erp::before{background:linear-gradient(90deg,#d4a853,#f0c060);}
-.card-erp .card-version{color:#d4a853;}
-.card-erp .v-dot{background:#d4a853;}
-.card-erp .card-title{color:#f0d080;}
-.card-erp .tag{background:rgba(212,168,83,.1);color:#d4a853;border:1px solid rgba(212,168,83,.2);}
-.card-erp .card-cta{color:#d4a853;}
-.card-erp .card-bg-num{color:rgba(212,168,83,.05);}
-
 /* ── 3-col layout when erp card present ── */
-.cards{grid-template-columns:1fr 1fr 1fr;}
+.cards{grid-template-columns:1fr 1fr;}
 
 /* ── RWD ── */
-@media(max-width:900px){
-  .cards{grid-template-columns:1fr 1fr;}
-}
 @media(max-width:580px){
   .cards{grid-template-columns:1fr;}
   body{padding:32px 18px 40px;}
@@ -270,22 +258,6 @@ body::after{
       <span class="tag">ISO 14064-1</span>
     </div>
     <div class="card-cta">進入整合系統 <span>→</span></div>
-  </a>
-
-
-  <!-- ERP Demo -->
-  <a class="card card-erp" href="erp-iot-demo.html">
-    <div class="card-bg-num">3</div>
-    <div class="card-version"><div class="v-dot"></div>VERSION 3 · ERP &amp; IoT 整合展示</div>
-    <div class="card-title">即時感測器<br>儀表板 Demo</div>
-    <div class="card-desc">模擬 SAP ERP 與 IoT 感測器即時數據整合，展示能源消耗監控、異常警報與碳排放即時儀表板。</div>
-    <div class="card-tags">
-      <span class="tag">IoT 感測器</span>
-      <span class="tag">SAP 串接</span>
-      <span class="tag">即時儀表板</span>
-      <span class="tag">Demo 展示</span>
-    </div>
-    <div class="card-cta">查看 Demo <span>→</span></div>
   </a>
 
 </div>
