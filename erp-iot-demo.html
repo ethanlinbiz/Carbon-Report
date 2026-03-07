@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>碳盤查系統 · ERP & IoT 整合 Demo</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0f0a;
+  --bg2: #0f160f;
+  --bg3: #141e14;
+  --panel: #111811;
+  --border: #1e2e1e;
+  --green: #00d4aa;
+  --green2: #55efc4;
+  --green-dim: #1a3a1a;
+  --amber: #ffab00;
+  --amber-dim: #2a1f00;
+  --red: #ff1744;
+  --red-dim: #2a0008;
+  --blue: #40c4ff;
+  --blue-dim: #001a2a;
+  --text: #e8f5e9;
+  --text2: #81c784;
+  --text3: #4a6b4a;
+  --mono: 'IBM Plex Mono', monospace;
+  --sans: 'Noto Sans TC', sans-serif;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:var(--sans); min-height:100vh; overflow-x:hidden; }
+
+/* Scan line effect */
+body::after { content:''; position:fixed; inset:0; background:repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,200,83,.015) 2px, rgba(0,200,83,.015) 4px); pointer-events:none; z-index:9999; }
+
+/* ── Top bar ── */
+.topbar { display:flex; align-items:center; padding:0 24px; height:52px; background:var(--bg2); border-bottom:1px solid var(--border); gap:20px; position:sticky; top:0; z-index:100; }
+.topbar-logo { font-family:var(--mono); font-size:13px; color:var(--green); letter-spacing:2px; font-weight:500; }
+.topbar-logo span { color:var(--text3); }
+.topbar-status { display:flex; align-items:center; gap:6px; font-family:var(--mono); font-size:11px; color:var(--text2); }
+.status-dot { width:7px; height:7px; border-radius:50%; background:var(--green); animation:pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(0,200,83,.4)} 50%{opacity:.7;box-shadow:0 0 0 5px rgba(0,200,83,0)} }
+.topbar-time { font-family:var(--mono); font-size:11px; color:var(--text3); margin-left:auto; }
+.demo-badge { background:var(--amber-dim); border:1px solid var(--amber); color:var(--amber); font-family:var(--mono); font-size:9px; letter-spacing:2px; padding:3px 8px; }
+
+/* ── Layout ── */
+.layout { display:grid; grid-template-columns:220px 1fr; grid-template-rows:1fr; height:calc(100vh - 52px); }
+
+/* ── Sidebar ── */
+.sidebar { background:var(--bg2); border-right:1px solid var(--border); padding:20px 0; overflow-y:auto; }
+.sidebar-section { padding:0 16px; margin-bottom:20px; }
+.sidebar-label { font-family:var(--mono); font-size:9px; letter-spacing:3px; color:var(--text3); text-transform:uppercase; margin-bottom:10px; padding:0 4px; }
+.nav-item { display:flex; align-items:center; gap:10px; padding:9px 12px; cursor:pointer; border-radius:3px; transition:all .15s; font-size:13px; color:var(--text2); border-left:2px solid transparent; margin-bottom:2px; }
+.nav-item:hover { background:var(--bg3); color:var(--text); }
+.nav-item.active { background:var(--green-dim); color:var(--green); border-left-color:var(--green); }
+.nav-icon { font-size:14px; width:18px; text-align:center; }
+.nav-badge { margin-left:auto; background:var(--green-dim); color:var(--green); font-family:var(--mono); font-size:9px; padding:2px 6px; border-radius:2px; }
+.nav-badge.warn { background:var(--amber-dim); color:var(--amber); }
+
+/* System status mini */
+.sys-status { margin:0 16px; padding:12px; background:var(--bg3); border:1px solid var(--border); border-radius:3px; }
+.sys-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; font-size:11px; }
+.sys-row:last-child { margin-bottom:0; }
+.sys-name { color:var(--text3); font-family:var(--mono); }
+.sys-val { font-family:var(--mono); font-size:10px; }
+.sys-val.ok { color:var(--green); }
+.sys-val.warn { color:var(--amber); }
+.sys-val.err { color:var(--red); }
+
+/* ── Main content ── */
+.main { overflow-y:auto; background:var(--bg); }
+
+/* Tab bar */
+.tab-bar { display:flex; border-bottom:1px solid var(--border); background:var(--bg2); padding:0 24px; gap:2px; }
+.tab { padding:12px 20px; font-size:12px; font-family:var(--mono); color:var(--text3); cursor:pointer; border-bottom:2px solid transparent; transition:all .15s; letter-spacing:.5px; }
+.tab:hover { color:var(--text2); }
+.tab.active { color:var(--green); border-bottom-color:var(--green); }
+
+.tab-content { display:none; padding:24px; }
+.tab-content.active { display:block; animation:fadeIn .2s ease; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+
+/* ── Widgets ── */
+.page-title { font-size:18px; font-weight:700; color:var(--text); margin-bottom:4px; letter-spacing:-.3px; }
+.page-sub { font-family:var(--mono); font-size:11px; color:var(--text3); margin-bottom:20px; }
+
+/* KPI row */
+.kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px; }
+.kpi-card { background:var(--panel); border:1px solid var(--border); padding:16px; position:relative; overflow:hidden; }
+.kpi-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; }
+.kpi-card.green::before { background:var(--green); }
+.kpi-card.amber::before { background:var(--amber); }
+.kpi-card.blue::before { background:var(--blue); }
+.kpi-card.red::before { background:var(--red); }
+.kpi-label { font-family:var(--mono); font-size:9px; letter-spacing:2px; color:var(--text3); text-transform:uppercase; margin-bottom:8px; }
+.kpi-value { font-size:28px; font-weight:700; line-height:1; margin-bottom:4px; }
+.kpi-card.green .kpi-value { color:var(--green); }
+.kpi-card.amber .kpi-value { color:var(--amber); }
+.kpi-card.blue .kpi-value { color:var(--blue); }
+.kpi-card.red .kpi-value { color:var(--red); }
+.kpi-unit { font-family:var(--mono); font-size:10px; color:var(--text3); }
+.kpi-delta { position:absolute; top:14px; right:14px; font-family:var(--mono); font-size:10px; }
+.kpi-delta.up { color:var(--red); }
+.kpi-delta.down { color:var(--green); }
+
+/* Grid 2-col */
+.grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+.grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-bottom:16px; }
+
+/* Panel card */
+.pcard { background:var(--panel); border:1px solid var(--border); }
+.pcard-header { padding:12px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+.pcard-title { font-family:var(--mono); font-size:11px; color:var(--text2); letter-spacing:1px; text-transform:uppercase; }
+.pcard-badge { font-family:var(--mono); font-size:9px; padding:2px 8px; border-radius:2px; }
+.pcard-badge.live { background:var(--green-dim); color:var(--green); animation:blink 2s infinite; }
+.pcard-badge.erp { background:var(--blue-dim); color:var(--blue); }
+.pcard-badge.iot { background:var(--amber-dim); color:var(--amber); }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.5} }
+.pcard-body { padding:16px; }
+
+/* IoT sensor grid */
+.sensor-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+.sensor-item { background:var(--bg3); border:1px solid var(--border); padding:12px; position:relative; }
+.sensor-name { font-family:var(--mono); font-size:9px; color:var(--text3); letter-spacing:1px; margin-bottom:6px; text-transform:uppercase; }
+.sensor-value { font-family:var(--mono); font-size:20px; font-weight:500; color:var(--green2); line-height:1; }
+.sensor-unit { font-family:var(--mono); font-size:9px; color:var(--text3); margin-top:2px; }
+.sensor-bar { height:2px; background:var(--border); margin-top:8px; }
+.sensor-bar-fill { height:100%; background:var(--green); transition:width .8s ease; }
+.sensor-bar-fill.warn { background:var(--amber); }
+.sensor-bar-fill.crit { background:var(--red); }
+.sensor-status { position:absolute; top:8px; right:8px; width:6px; height:6px; border-radius:50%; }
+.sensor-status.ok { background:var(--green); }
+.sensor-status.warn { background:var(--amber); }
+
+/* ERP table */
+.erp-table { width:100%; border-collapse:collapse; font-size:12px; }
+.erp-table th { padding:8px 12px; text-align:left; font-family:var(--mono); font-size:9px; letter-spacing:1px; color:var(--text3); text-transform:uppercase; border-bottom:1px solid var(--border); }
+.erp-table td { padding:9px 12px; border-bottom:1px solid var(--border); font-family:var(--mono); font-size:11px; }
+.erp-table tr:last-child td { border-bottom:none; }
+.erp-table tr:hover td { background:var(--bg3); }
+.erp-table .num { text-align:right; color:var(--green2); }
+.tag { display:inline-block; padding:1px 6px; border-radius:2px; font-size:9px; font-family:var(--mono); letter-spacing:.5px; }
+.tag-s1 { background:rgba(255,171,0,.15); color:var(--amber); }
+.tag-s2 { background:rgba(0,200,83,.15); color:var(--green); }
+.tag-s3 { background:rgba(64,196,255,.15); color:var(--blue); }
+
+/* Sparkline (CSS only) */
+.spark { display:flex; align-items:flex-end; gap:2px; height:32px; }
+.spark-bar { flex:1; background:var(--green-dim); border-radius:1px; transition:height .3s; }
+.spark-bar.active { background:var(--green); }
+
+/* Progress bars */
+.prog-item { margin-bottom:12px; }
+.prog-header { display:flex; justify-content:space-between; font-family:var(--mono); font-size:10px; margin-bottom:4px; }
+.prog-label { color:var(--text2); }
+.prog-val { color:var(--text3); }
+.prog-track { height:4px; background:var(--border); }
+.prog-fill { height:100%; transition:width 1s ease; }
+.prog-fill.g { background:var(--green); }
+.prog-fill.a { background:var(--amber); }
+.prog-fill.b { background:var(--blue); }
+
+/* Log stream */
+.log-stream { font-family:var(--mono); font-size:11px; line-height:1.8; max-height:180px; overflow-y:auto; }
+.log-line { display:flex; gap:10px; padding:2px 0; border-bottom:1px solid rgba(255,255,255,.03); }
+.log-time { color:var(--text3); flex-shrink:0; }
+.log-src { flex-shrink:0; }
+.log-src.erp { color:var(--blue); }
+.log-src.iot { color:var(--amber); }
+.log-src.sys { color:var(--green); }
+.log-msg { color:var(--text2); }
+
+/* Buttons */
+.btn { padding:9px 20px; font-family:var(--mono); font-size:11px; letter-spacing:1px; cursor:pointer; border:none; transition:all .15s; }
+.btn-green { background:var(--green); color:#000; font-weight:700; }
+.btn-green:hover { background:var(--green2); }
+.btn-outline { background:transparent; color:var(--green); border:1px solid var(--green); }
+.btn-outline:hover { background:var(--green-dim); }
+.btn-amber { background:var(--amber); color:#000; font-weight:700; }
+.btn-row { display:flex; gap:10px; margin-top:16px; }
+
+/* Connection config */
+.config-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.config-group { display:flex; flex-direction:column; gap:5px; }
+.config-label { font-family:var(--mono); font-size:9px; letter-spacing:1px; color:var(--text3); text-transform:uppercase; }
+.config-input { padding:8px 10px; background:var(--bg3); border:1px solid var(--border); color:var(--green2); font-family:var(--mono); font-size:12px; }
+.config-input:focus { outline:none; border-color:var(--green); }
+.config-select { padding:8px 10px; background:var(--bg3); border:1px solid var(--border); color:var(--green2); font-family:var(--mono); font-size:12px; cursor:pointer; }
+
+/* Alert */
+.alert { padding:10px 14px; border-left:3px solid; font-size:12px; margin-bottom:12px; font-family:var(--mono); }
+.alert-green { border-color:var(--green); background:var(--green-dim); color:var(--green2); }
+.alert-amber { border-color:var(--amber); background:var(--amber-dim); color:var(--amber); }
+
+/* Sync animation */
+.syncing { animation:spin .8s linear infinite; display:inline-block; }
+@keyframes spin { to{transform:rotate(360deg)} }
+
+/* Scrollbar */
+::-webkit-scrollbar { width:4px; height:4px; }
+::-webkit-scrollbar-track { background:var(--bg); }
+::-webkit-scrollbar-thumb { background:var(--border); }
+::-webkit-scrollbar-thumb:hover { background:var(--text3); }
+
+/* ── Home link ── */
+.topbar-home {
+  display:flex; align-items:center; justify-content:center;
+  width:30px; height:30px; flex-shrink:0;
+  color:#4a6a52; font-size:15px;
+  text-decoration:none; border:1px solid var(--border,#1e2e1e);
+  transition:all .15s; font-family:'IBM Plex Mono',monospace;
+}
+.topbar-home:hover { color:var(--green,#00d4aa); border-color:var(--green,#00d4aa); }
+
+/* ── RWD ── */
+@media(max-width:900px){
+  .layout { flex-direction: column; }
+  .sidebar { width:100%; height:auto; flex-direction:row; overflow-x:auto; padding:8px; }
+  .sidebar-section { display:flex; flex-direction:row; gap:4px; }
+  .sidebar-label { display:none; }
+  .nav-item { min-width:80px; text-align:center; padding:6px 8px; font-size:10px; }
+  .main { padding:12px; }
+}
+@media(max-width:580px){
+  .topbar { padding:0 12px; gap:8px; }
+  .topbar-logo { font-size:14px; }
+  .demo-badge { display:none; }
+  .grid-2, .grid-3, .grid-4 { grid-template-columns:1fr!important; }
+  .card { padding:14px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="topbar">
+  <a href="index.html" class="topbar-home" title="回首頁">&#8592;</a>
+  <div class="topbar-logo">CO₂<span>/</span>SYS</div>
+  <div class="topbar-status"><div class="status-dot"></div>系統運作中</div>
+  <div class="demo-badge">DEMO MODE</div>
+  <div class="topbar-time" id="clock">--:--:--</div>
+</div>
+
+<div class="layout">
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">資料來源</div>
+      <div class="nav-item active" onclick="switchTab('dashboard')"><span class="nav-icon">⬡</span>總覽儀表板<span class="nav-badge" id="badge-live">LIVE</span></div>
+      <div class="nav-item" onclick="switchTab('erp')"><span class="nav-icon">◈</span>ERP 資料<span class="nav-badge" style="background:var(--blue-dim);color:var(--blue)">SAP</span></div>
+      <div class="nav-item" onclick="switchTab('iot')"><span class="nav-icon">◉</span>IoT 感測器<span class="nav-badge warn" id="badge-iot">14</span></div>
+      <div class="nav-item" onclick="switchTab('report')"><span class="nav-icon">▤</span>生成報告</div>
+      <div class="nav-item" onclick="switchTab('config')"><span class="nav-icon">⚙</span>連線設定</div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">系統狀態</div>
+      <div class="sys-status">
+        <div class="sys-row"><span class="sys-name">ERP API</span><span class="sys-val ok" id="ss-erp">● 連線中</span></div>
+        <div class="sys-row"><span class="sys-name">IoT Hub</span><span class="sys-val ok" id="ss-iot">● 連線中</span></div>
+        <div class="sys-row"><span class="sys-name">資料同步</span><span class="sys-val ok" id="ss-sync">● 即時</span></div>
+        <div class="sys-row"><span class="sys-name">上次更新</span><span class="sys-val" id="ss-time" style="color:var(--text3)">--:--</span></div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">盤查進度</div>
+      <div style="padding:0 4px;">
+        <div class="prog-item"><div class="prog-header"><span class="prog-label">範疇一</span><span class="prog-val" id="p1">4/4</span></div><div class="prog-track"><div class="prog-fill g" style="width:100%"></div></div></div>
+        <div class="prog-item"><div class="prog-header"><span class="prog-label">範疇二</span><span class="prog-val" id="p2">3/3</span></div><div class="prog-track"><div class="prog-fill g" style="width:100%"></div></div></div>
+        <div class="prog-item"><div class="prog-header"><span class="prog-label">範疇三</span><span class="prog-val" id="p3">6/7</span></div><div class="prog-track"><div class="prog-fill a" style="width:86%"></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="tab-bar">
+      <div class="tab active" id="tab-dashboard" onclick="switchTab('dashboard')">總覽儀表板</div>
+      <div class="tab" id="tab-erp" onclick="switchTab('erp')">ERP 資料串接</div>
+      <div class="tab" id="tab-iot" onclick="switchTab('iot')">IoT 即時監控</div>
+      <div class="tab" id="tab-report" onclick="switchTab('report')">匯入報告系統</div>
+      <div class="tab" id="tab-config" onclick="switchTab('config')">連線設定</div>
+    </div>
+
+    <!-- ══ TAB: Dashboard ══ -->
+    <div class="tab-content active" id="tc-dashboard">
+      <div class="page-title">即時碳排放監控儀表板</div>
+      <div class="page-sub">資料來源：ERP (SAP S/4HANA) + IoT Hub (14 個感測器) · 更新頻率：30秒</div>
+
+      <div class="kpi-row">
+        <div class="kpi-card green">
+          <div class="kpi-label">本年累計排放</div>
+          <div class="kpi-value" id="kpi-total">2,492</div>
+          <div class="kpi-unit">公噸 CO₂e</div>
+          <div class="kpi-delta up" id="kpi-total-d">+3.2%</div>
+        </div>
+        <div class="kpi-card amber">
+          <div class="kpi-label">本月用電量</div>
+          <div class="kpi-value" id="kpi-elec">182K</div>
+          <div class="kpi-unit">kWh · 範疇二</div>
+          <div class="kpi-delta down">↓1.4%</div>
+        </div>
+        <div class="kpi-card blue">
+          <div class="kpi-label">即時燃氣流量</div>
+          <div class="kpi-value" id="kpi-gas">4,230</div>
+          <div class="kpi-unit">m³/月 · 範疇一</div>
+          <div class="kpi-delta down">↓0.8%</div>
+        </div>
+        <div class="kpi-card red">
+          <div class="kpi-label">異常告警</div>
+          <div class="kpi-value" id="kpi-alert">2</div>
+          <div class="kpi-unit">感測器異常</div>
+          <div class="kpi-delta" style="color:var(--text3)">待確認</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <!-- ERP snapshot -->
+        <div class="pcard">
+          <div class="pcard-header">
+            <span class="pcard-title">ERP 採購 / 生產數據</span>
+            <span class="pcard-badge erp">SAP S/4HANA</span>
+          </div>
+          <div class="pcard-body" style="padding:0">
+            <table class="erp-table">
+              <thead><tr><th>排放源</th><th>數量</th><th>單位</th><th class="num">tCO₂e</th><th>範疇</th></tr></thead>
+              <tbody id="erp-preview"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- IoT snapshot -->
+        <div class="pcard">
+          <div class="pcard-header">
+            <span class="pcard-title">IoT 感測器即時讀值</span>
+            <span class="pcard-badge live">● LIVE</span>
+          </div>
+          <div class="pcard-body">
+            <div class="sensor-grid" id="sensor-mini"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Log stream -->
+      <div class="pcard">
+        <div class="pcard-header">
+          <span class="pcard-title">資料串流記錄</span>
+          <span class="pcard-badge live">● 即時</span>
+        </div>
+        <div class="pcard-body">
+          <div class="log-stream" id="log-stream"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ TAB: ERP ══ -->
+    <div class="tab-content" id="tc-erp">
+      <div class="page-title">ERP 系統資料串接</div>
+      <div class="page-sub">模擬 SAP S/4HANA API 回傳 · 包含採購、生產、能源模組</div>
+
+      <div class="alert alert-green">✓ ERP API 連線正常 · 端點：https://erp.demo-company.com/api/v2/ghg · 最後同步：<span id="erp-sync-time">剛剛</span></div>
+
+      <div class="grid-3">
+        <div class="pcard">
+          <div class="pcard-header"><span class="pcard-title">PM 能源模組</span><span class="pcard-badge erp">PM</span></div>
+          <div class="pcard-body">
+            <div class="prog-item"><div class="prog-header"><span class="prog-label">天然氣</span><span class="prog-val">48,500 m³</span></div><div class="prog-track"><div class="prog-fill g" style="width:72%"></div></div></div>
+            <div class="prog-item"><div class="prog-header"><span class="prog-label">柴油</span><span class="prog-val">18,200 L</span></div><div class="prog-track"><div class="prog-fill a" style="width:54%"></div></div></div>
+            <div class="prog-item"><div class="prog-header"><span class="prog-label">電力</span><span class="prog-val">2,170,000 kWh</span></div><div class="prog-track"><div class="prog-fill b" style="width:88%"></div></div></div>
+          </div>
+        </div>
+        <div class="pcard">
+          <div class="pcard-header"><span class="pcard-title">MM 採購模組</span><span class="pcard-badge erp">MM</span></div>
+          <div class="pcard-body">
+            <div class="prog-item"><div class="prog-header"><span class="prog-label">原料採購貨運</span><span class="prog-val">860,000 t·km</span></div><div class="prog-track"><div class="prog-fill g" style="width:65%"></div></div></div>
+            <div class="prog-item"><div class="prog-header"><span class="prog-label">廢棄物</span><span class="prog-val">68,000 kg</span></div><div class="prog-track"><div class="prog-fill a" style="width:40%"></div></div></div>
+            <div class="prog-item"><div class="prog-header"><span class="prog-label">廢水</span><span class="prog-val">35,000 噸</span></div><div class="prog-track"><div class="prog-fill b" style="width:35%"></div></div></div>
+          </div>
+        </div>
+        <div class="pcard">
+          <div class="pcard-header"><span class="pcard-title">HR 人事模組</span><span class="pcard-badge erp">HR</span></div>
+          <div class="pcard-body">
+            <div class="prog-item"><div class="prog-header"><span class="prog-label">員工通勤</span><span class="prog-val">4,200,000 km</span></div><div class="prog-track"><div class="prog-fill g" style="width:80%"></div></div></div>
+            <div class="prog-item"><div class="prog-header"><span class="prog-label">國內差旅</span><span class="prog-val">280,000 km</span></div><div class="prog-track"><div class="prog-fill a" style="width:25%"></div></div></div>
+            <div class="prog-item"><div class="prog-header"><span class="prog-label">國際差旅</span><span class="prog-val">1,450,000 km</span></div><div class="prog-track"><div class="prog-fill b" style="width:60%"></div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pcard">
+        <div class="pcard-header"><span class="pcard-title">ERP 完整資料清單</span><span class="pcard-badge erp">14 筆記錄</span></div>
+        <div class="pcard-body" style="padding:0">
+          <table class="erp-table" id="erp-full-table">
+            <thead><tr><th>模組</th><th>排放源名稱</th><th>活動數據</th><th>單位</th><th>排放係數</th><th class="num">排放量 (tCO₂e)</th><th>範疇</th><th>狀態</th></tr></thead>
+            <tbody id="erp-full-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ TAB: IoT ══ -->
+    <div class="tab-content" id="tc-iot">
+      <div class="page-title">IoT 感測器即時監控</div>
+      <div class="page-sub">14 個感測器 · MQTT over WebSocket · 更新頻率：5秒</div>
+
+      <div class="alert alert-amber">⚠ 2 個感測器讀值超出正常範圍，建議現場確認。</div>
+
+      <div class="sensor-grid" id="sensor-full" style="grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;"></div>
+
+      <div class="grid-2">
+        <div class="pcard">
+          <div class="pcard-header"><span class="pcard-title">電力消耗趨勢（近12小時）</span><span class="pcard-badge live">● LIVE</span></div>
+          <div class="pcard-body">
+            <div style="display:flex;align-items:flex-end;gap:3px;height:80px;" id="elec-chart"></div>
+            <div style="display:flex;justify-content:space-between;margin-top:6px;font-family:var(--mono);font-size:9px;color:var(--text3);">
+              <span>12hr前</span><span>6hr前</span><span>現在</span>
+            </div>
+          </div>
+        </div>
+        <div class="pcard">
+          <div class="pcard-header"><span class="pcard-title">燃氣流量趨勢（近12小時）</span><span class="pcard-badge live">● LIVE</span></div>
+          <div class="pcard-body">
+            <div style="display:flex;align-items:flex-end;gap:3px;height:80px;" id="gas-chart"></div>
+            <div style="display:flex;justify-content:space-between;margin-top:6px;font-family:var(--mono);font-size:9px;color:var(--text3);">
+              <span>12hr前</span><span>6hr前</span><span>現在</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ TAB: Report ══ -->
+    <div class="tab-content" id="tc-report">
+      <div class="page-title">匯入碳盤查報告系統</div>
+      <div class="page-sub">將 ERP + IoT 資料整合，一鍵匯入碳盤查報告生成系統</div>
+
+      <div class="alert alert-green">✓ 資料已備妥：ERP 14 筆 + IoT 即時數據 14 點，合計排放量 2,492.65 tCO₂e</div>
+
+      <div class="grid-2">
+        <div class="pcard">
+          <div class="pcard-header"><span class="pcard-title">資料彙整預覽</span></div>
+          <div class="pcard-body">
+            <div class="prog-item"><div class="prog-header"><span class="prog-label">範疇一（ERP 燃料 + IoT 冷媒）</span><span class="prog-val" style="color:var(--amber)">455.10 tCO₂e</span></div><div class="prog-track"><div class="prog-fill a" style="width:18%"></div></div></div>
+            <div class="prog-item"><div class="prog-header"><span class="prog-label">範疇二（IoT 智慧電錶 + ERP 能源）</span><span class="prog-val" style="color:var(--green)">1,238.58 tCO₂e</span></div><div class="prog-track"><div class="prog-fill g" style="width:50%"></div></div></div>
+            <div class="prog-item"><div class="prog-header"><span class="prog-label">範疇三（ERP 採購 + HR 差旅）</span><span class="prog-val" style="color:var(--blue)">798.97 tCO₂e</span></div><div class="prog-track"><div class="prog-fill b" style="width:32%"></div></div></div>
+            <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:12px;display:flex;justify-content:space-between;font-family:var(--mono);font-size:12px;">
+              <span style="color:var(--text3)">總計</span>
+              <span style="color:var(--green);font-weight:700;">2,492.65 tCO₂e</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="pcard">
+          <div class="pcard-header"><span class="pcard-title">匯出格式選擇</span></div>
+          <div class="pcard-body">
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;"><input type="radio" name="fmt" value="excel" checked style="accent-color:var(--green)"> 匯出為 Excel（上傳碳盤查系統）</label>
+              <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;"><input type="radio" name="fmt" value="direct"> 直接填入碳盤查系統（同頁面）</label>
+              <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;"><input type="radio" name="fmt" value="api"> 透過 API 推送至報告系統</label>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-green" onclick="doImport()">▶ 立即匯入 / 生成報告</button>
+              <button class="btn btn-outline" onclick="downloadExcel()">↓ 下載 Excel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="import-result" style="display:none;margin-top:8px;"></div>
+    </div>
+
+    <!-- ══ TAB: Config ══ -->
+    <div class="tab-content" id="tc-config">
+      <div class="page-title">系統連線設定</div>
+      <div class="page-sub">設定 ERP API 端點、IoT Hub 連線參數與資料同步排程</div>
+
+      <div class="grid-2">
+        <div class="pcard">
+          <div class="pcard-header"><span class="pcard-title">ERP 連線設定</span><span class="pcard-badge erp">SAP / Oracle / Dynamics</span></div>
+          <div class="pcard-body">
+            <div class="config-grid">
+              <div class="config-group" style="grid-column:1/-1"><div class="config-label">ERP 系統類型</div>
+                <select class="config-select"><option>SAP S/4HANA</option><option>Oracle ERP Cloud</option><option>Microsoft Dynamics 365</option><option>鼎新 Workflow</option><option>勤業 ERP</option><option>自行開發 REST API</option></select>
+              </div>
+              <div class="config-group"><div class="config-label">API 端點 URL</div><input class="config-input" value="https://erp.demo-company.com/api/v2" /></div>
+              <div class="config-group"><div class="config-label">認證方式</div><select class="config-select"><option>OAuth 2.0</option><option>API Key</option><option>Basic Auth</option></select></div>
+              <div class="config-group"><div class="config-label">Client ID</div><input class="config-input" value="ghg_client_demo_001" /></div>
+              <div class="config-group"><div class="config-label">Client Secret</div><input class="config-input" type="password" value="••••••••••••" /></div>
+              <div class="config-group"><div class="config-label">同步模組</div><select class="config-select"><option>PM + MM + HR（全部）</option><option>僅 PM 能源模組</option><option>自訂</option></select></div>
+              <div class="config-group"><div class="config-label">同步頻率</div><select class="config-select"><option>每30分鐘</option><option>每小時</option><option>每天</option></select></div>
+            </div>
+            <div class="btn-row"><button class="btn btn-green" onclick="testConn('erp')">測試連線</button><button class="btn btn-outline">儲存設定</button></div>
+          </div>
+        </div>
+
+        <div class="pcard">
+          <div class="pcard-header"><span class="pcard-title">IoT Hub 連線設定</span><span class="pcard-badge iot">MQTT / REST</span></div>
+          <div class="pcard-body">
+            <div class="config-grid">
+              <div class="config-group" style="grid-column:1/-1"><div class="config-label">IoT 平台類型</div>
+                <select class="config-select"><option>Azure IoT Hub</option><option>AWS IoT Core</option><option>Google Cloud IoT</option><option>自建 MQTT Broker</option><option>Modbus TCP</option></select>
+              </div>
+              <div class="config-group"><div class="config-label">Broker 位址</div><input class="config-input" value="mqtt://iot.demo-company.com:1883" /></div>
+              <div class="config-group"><div class="config-label">連線協定</div><select class="config-select"><option>MQTT over WebSocket</option><option>MQTT TCP</option><option>REST API 輪詢</option></select></div>
+              <div class="config-group"><div class="config-label">Topic 前綴</div><input class="config-input" value="factory/sensors/ghg/#" /></div>
+              <div class="config-group"><div class="config-label">QoS 等級</div><select class="config-select"><option>QoS 1（至少一次）</option><option>QoS 0</option><option>QoS 2</option></select></div>
+              <div class="config-group"><div class="config-label">感測器數量</div><input class="config-input" value="14" /></div>
+              <div class="config-group"><div class="config-label">讀值頻率（秒）</div><input class="config-input" value="5" /></div>
+            </div>
+            <div class="btn-row"><button class="btn btn-green" onclick="testConn('iot')">測試連線</button><button class="btn btn-outline">儲存設定</button></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="conn-result" style="margin-top:8px;"></div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /layout -->
+
+<script>
+// ══ Data ════════════════════════════════════════════════════
+const ERP_DATA = [
+  {module:'PM',name:'天然氣鍋爐燃燒',value:48500,unit:'m³',ef:2.04,emission:98.94,scope:1},
+  {module:'PM',name:'柴油發電機燃燒',value:18200,unit:'公升',ef:2.68,emission:48.78,scope:1},
+  {module:'PM',name:'公務車輛汽油',value:24600,unit:'公升',ef:2.31,emission:56.83,scope:1},
+  {module:'PM',name:'冷媒逸散 R-410A',value:120,unit:'kg',ef:2088,emission:250.56,scope:1},
+  {module:'PM',name:'工廠外購電力',value:1850000,unit:'kWh',ef:0.494,emission:913.90,scope:2},
+  {module:'PM',name:'辦公室外購電力',value:320000,unit:'kWh',ef:0.494,emission:158.08,scope:2},
+  {module:'PM',name:'外購蒸汽',value:2800,unit:'GJ',ef:59.5,emission:166.60,scope:2},
+  {module:'MM',name:'原料採購貨運',value:860000,unit:'噸公里',ef:0.146,emission:125.56,scope:3},
+  {module:'MM',name:'成品配送物流',value:620000,unit:'噸公里',ef:0.146,emission:90.52,scope:3},
+  {module:'MM',name:'一般廢棄物處理',value:68000,unit:'kg',ef:0.467,emission:31.76,scope:3},
+  {module:'MM',name:'廢水處理',value:35000,unit:'噸',ef:0.708,emission:24.78,scope:3},
+  {module:'HR',name:'員工國際差旅航班',value:1450000,unit:'乘客公里',ef:0.195,emission:282.75,scope:3},
+  {module:'HR',name:'員工國內差旅航班',value:280000,unit:'乘客公里',ef:0.255,emission:71.40,scope:3},
+  {module:'HR',name:'員工通勤',value:4200000,unit:'乘客公里',ef:0.041,emission:172.20,scope:3},
+];
+
+const IOT_SENSORS = [
+  {id:'E-01',name:'廠區A電錶',type:'electricity',value:1250,unit:'kWh/hr',max:2000,status:'ok'},
+  {id:'E-02',name:'廠區B電錶',type:'electricity',value:980,unit:'kWh/hr',max:2000,status:'ok'},
+  {id:'E-03',name:'辦公大樓電錶',type:'electricity',value:320,unit:'kWh/hr',max:500,status:'ok'},
+  {id:'G-01',name:'鍋爐燃氣流量',type:'gas',value:185,unit:'m³/hr',max:300,status:'ok'},
+  {id:'G-02',name:'備用爐燃氣',type:'gas',value:42,unit:'m³/hr',max:100,status:'ok'},
+  {id:'F-01',name:'柴油液位計',type:'fuel',value:68,unit:'%',max:100,status:'ok'},
+  {id:'F-02',name:'汽油槽液位',type:'fuel',value:45,unit:'%',max:100,status:'ok'},
+  {id:'R-01',name:'冷媒壓力A',type:'refrigerant',value:2.8,unit:'MPa',max:3.5,status:'ok'},
+  {id:'R-02',name:'冷媒壓力B',type:'refrigerant',value:3.4,unit:'MPa',max:3.5,status:'warn'},
+  {id:'W-01',name:'廢水流量計',type:'water',value:12.5,unit:'噸/hr',max:20,status:'ok'},
+  {id:'T-01',name:'廠區溫度',type:'temp',value:28.4,unit:'°C',max:40,status:'ok'},
+  {id:'S-01',name:'蒸汽壓力',type:'steam',value:4.2,unit:'bar',max:6,status:'ok'},
+  {id:'A-01',name:'空氣品質(CO₂)',type:'air',value:892,unit:'ppm',max:1000,status:'ok'},
+  {id:'A-02',name:'排氣濃度',type:'air',value:1850,unit:'ppm',max:1500,status:'warn'},
+];
+
+// ══ Render functions ══════════════════════════════════════
+function renderERPPreview(){
+  const el=document.getElementById('erp-preview');
+  if(!el)return;
+  ERP_DATA.slice(0,6).forEach(r=>{
+    const sc=['','tag-s1','tag-s2','tag-s3'][r.scope];
+    const sl=['','範疇一','範疇二','範疇三'][r.scope];
+    el.innerHTML+=`<tr><td>${r.name}</td><td>${r.value.toLocaleString()}</td><td>${r.unit}</td><td class="num">${r.emission.toFixed(2)}</td><td><span class="tag ${sc}">${sl}</span></td></tr>`;
+  });
+}
+
+function renderERPFull(){
+  const el=document.getElementById('erp-full-tbody');
+  if(!el||el.children.length>0)return;
+  ERP_DATA.forEach(r=>{
+    const sc=['','tag-s1','tag-s2','tag-s3'][r.scope];
+    const sl=['','範疇一','範疇二','範疇三'][r.scope];
+    el.innerHTML+=`<tr>
+      <td><span class="tag" style="background:var(--blue-dim);color:var(--blue)">${r.module}</span></td>
+      <td>${r.name}</td>
+      <td>${r.value.toLocaleString()}</td>
+      <td>${r.unit}</td>
+      <td>${r.ef}</td>
+      <td class="num">${r.emission.toFixed(4)}</td>
+      <td><span class="tag ${sc}">${sl}</span></td>
+      <td><span style="color:var(--green);font-family:var(--mono);font-size:10px;">✓ 已驗證</span></td>
+    </tr>`;
+  });
+}
+
+function renderSensorMini(){
+  const el=document.getElementById('sensor-mini');
+  if(!el)return;
+  IOT_SENSORS.slice(0,6).forEach(s=>{
+    const pct=Math.min(100,Math.round(s.value/s.max*100));
+    const fillCls=s.status==='warn'?'warn':pct>80?'warn':'';
+    el.innerHTML+=`<div class="sensor-item">
+      <div class="sensor-status ${s.status}"></div>
+      <div class="sensor-name">${s.id}</div>
+      <div class="sensor-value" id="sv-${s.id}">${s.value}</div>
+      <div class="sensor-unit">${s.unit}</div>
+      <div class="sensor-bar"><div class="sensor-bar-fill ${fillCls}" style="width:${pct}%" id="sb-${s.id}"></div></div>
+    </div>`;
+  });
+}
+
+function renderSensorFull(){
+  const el=document.getElementById('sensor-full');
+  if(!el||el.children.length>0)return;
+  IOT_SENSORS.forEach(s=>{
+    const pct=Math.min(100,Math.round(s.value/s.max*100));
+    const fillCls=s.status==='warn'?'warn':pct>80?'warn':'';
+    el.innerHTML+=`<div class="sensor-item">
+      <div class="sensor-status ${s.status}"></div>
+      <div class="sensor-name">${s.id} · ${s.name}</div>
+      <div class="sensor-value" id="sfv-${s.id}">${s.value}</div>
+      <div class="sensor-unit">${s.unit}</div>
+      <div class="sensor-bar"><div class="sensor-bar-fill ${fillCls}" style="width:${pct}%" id="sfb-${s.id}"></div></div>
+    </div>`;
+  });
+}
+
+function renderCharts(){
+  const elecEl=document.getElementById('elec-chart');
+  const gasEl=document.getElementById('gas-chart');
+  if(!elecEl||!gasEl)return;
+  const elecData=[820,890,950,1020,1180,1250,1190,1310,1280,1350,1220,1250];
+  const gasData=[140,155,162,170,180,185,175,190,185,178,182,185];
+  const maxE=Math.max(...elecData), maxG=Math.max(...gasData);
+  elecEl.innerHTML=elecData.map((v,i)=>`<div style="flex:1;background:${i===elecData.length-1?'var(--green)':'var(--green-dim)'};height:${Math.round(v/maxE*100)}%;border-radius:1px 1px 0 0;"></div>`).join('');
+  gasEl.innerHTML=gasData.map((v,i)=>`<div style="flex:1;background:${i===gasData.length-1?'var(--blue)':'var(--blue-dim)'};height:${Math.round(v/maxG*100)}%;border-radius:1px 1px 0 0;"></div>`).join('');
+}
+
+// ══ Live updates ══════════════════════════════════════════
+let logLines=[];
+const LOG_SOURCES=[
+  {src:'IoT',cls:'iot',msgs:['E-01 讀值更新：1,250 kWh/hr','G-01 燃氣流量：185 m³/hr','A-02 排氣濃度超標警示！','R-02 冷媒壓力接近上限','E-02 讀值更新：980 kWh/hr','W-01 廢水流量正常：12.5 噸/hr']},
+  {src:'ERP',cls:'erp',msgs:['PM模組同步完成：3筆更新','MM採購數據已更新','HR差旅記錄同步：本月新增8筆','能源模組月結算完成','廢棄物申報資料已匯入']},
+  {src:'SYS',cls:'sys',msgs:['資料完整性查核通過','排放係數資料庫已更新','ISO 14064-1 合規性檢查完成','備份至雲端完成']},
+];
+
+function addLog(){
+  const now=new Date();
+  const t=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  const src=LOG_SOURCES[Math.floor(Math.random()*LOG_SOURCES.length)];
+  const msg=src.msgs[Math.floor(Math.random()*src.msgs.length)];
+  const el=document.getElementById('log-stream');
+  if(!el)return;
+  el.innerHTML=`<div class="log-line"><span class="log-time">${t}</span><span class="log-src ${src.cls}">[${src.src}]</span><span class="log-msg">${msg}</span></div>`+el.innerHTML;
+  if(el.children.length>30)el.removeChild(el.lastChild);
+}
+
+function updateSensors(){
+  IOT_SENSORS.forEach(s=>{
+    const delta=(Math.random()-.5)*s.max*0.03;
+    s.value=Math.max(s.max*0.1,Math.min(s.max*1.05,+(s.value+delta).toFixed(1)));
+    const pct=Math.min(100,Math.round(s.value/s.max*100));
+    // Update mini
+    const sv=document.getElementById('sv-'+s.id);
+    const sb=document.getElementById('sb-'+s.id);
+    if(sv)sv.textContent=s.value;
+    if(sb)sb.style.width=pct+'%';
+    // Update full
+    const sfv=document.getElementById('sfv-'+s.id);
+    const sfb=document.getElementById('sfb-'+s.id);
+    if(sfv)sfv.textContent=s.value;
+    if(sfb)sfb.style.width=pct+'%';
+  });
+  // Update KPI gas
+  const gasTotal=IOT_SENSORS.filter(s=>s.type==='gas').reduce((a,s)=>a+s.value,0);
+  const kpiGas=document.getElementById('kpi-gas');
+  if(kpiGas)kpiGas.textContent=Math.round(gasTotal*22).toLocaleString();
+}
+
+function updateClock(){
+  const now=new Date();
+  const t=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  document.getElementById('clock').textContent=t;
+  document.getElementById('ss-time').textContent=t;
+}
+
+// ══ Tab switching ══════════════════════════════════════════
+function switchTab(name){
+  document.querySelectorAll('.tab-content').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
+  document.getElementById('tc-'+name).classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+  // lazy render
+  if(name==='erp') renderERPFull();
+  if(name==='iot'){renderSensorFull();renderCharts();}
+}
+
+// ══ Actions ═══════════════════════════════════════════════
+function testConn(type){
+  const el=document.getElementById('conn-result');
+  el.innerHTML=`<div class="alert alert-amber">⟳ 正在測試${type==='erp'?'ERP API':'IoT Hub'}連線...</div>`;
+  setTimeout(()=>{
+    el.innerHTML=`<div class="alert alert-green">✓ ${type==='erp'?'ERP API (SAP S/4HANA)':'IoT Hub (MQTT)'} 連線成功！延遲：${Math.floor(Math.random()*30+10)}ms · 認證驗證通過</div>`;
+  },1800);
+}
+
+function doImport(){
+  const el=document.getElementById('import-result');
+  el.style.display='block';
+  el.innerHTML=`<div class="alert alert-amber">⟳ 正在整合 ERP + IoT 資料並匯入碳盤查報告系統...</div>`;
+  setTimeout(()=>{
+    // 將 ERP_DATA 序列化並透過 URL 參數傳遞給 index.html
+    const payload = JSON.stringify(ERP_DATA.map(r=>({
+      排放源: r.name,
+      活動數據: r.value,
+      單位: r.unit,
+      排放係數: r.ef,
+      排放範疇: ['','範疇一','範疇二','範疇三'][r.scope],
+      '排放量 (tCO₂e)': r.emission
+    })));
+    const encoded = encodeURIComponent(payload);
+    const url = 'index.html?erpdata=' + encoded;
+    el.innerHTML=`<div class="alert alert-green">
+      ✓ 匯入完成！14 筆排放源資料已整合，總排放量 2,492.65 tCO₂e。<br><br>
+      → <a href="${url}" target="_blank" style="color:var(--green2);font-weight:700;text-decoration:underline;font-size:13px;">
+      ▶ 點此開啟碳盤查報告系統（資料已自動帶入）</a>
+    </div>`;
+  },2200);
+}
+
+function downloadExcel(){
+  const el=document.getElementById('import-result');
+  el.style.display='block';
+  el.innerHTML=`<div class="alert alert-green">✓ Excel 檔案已準備完成（模擬）。實際部署後將自動產出符合碳盤查系統格式的 .xlsx 檔案並下載。</div>`;
+}
+
+// ══ Init ══════════════════════════════════════════════════
+renderERPPreview();
+renderSensorMini();
+
+setInterval(updateClock, 1000);
+setInterval(addLog, 2500);
+setInterval(updateSensors, 5000);
+
+// Initial logs
+for(let i=0;i<8;i++) setTimeout(()=>addLog(), i*300);
+updateClock();
+</script>
+</body>
+</html>

@@ -2,1025 +2,1860 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>碳盤查報告系統 · ISO 14064-1</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Serif+TC:wght@300;400;600&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js">
-// ── Field validation ──────────────────────────────
-function v1ShowErr(id, msg) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.style.borderColor = 'var(--red)';
-  let e = el.parentNode.querySelector('.field-err');
-  if (!e) { e = document.createElement('div'); e.className='field-err'; e.style.cssText='font-size:11px;color:var(--red);font-family:var(--mono);margin-top:4px;'; el.parentNode.appendChild(e); }
-  e.textContent = '⚠ ' + msg;
-}
-function v1ClearErrs() {
-  document.querySelectorAll('.field-err').forEach(e => e.remove());
-  document.querySelectorAll('input, select, textarea').forEach(el => el.style.borderColor = '');
-}
-function v1ValidateStep1() {
-  v1ClearErrs(); let ok = true;
-  const req = { 'f-org-name':'組織名稱', 'f-org-addr':'主要營業地址', 'f-contact-name':'負責人姓名' };
-  for (const [id, lbl] of Object.entries(req)) {
-    if (!document.getElementById(id)?.value.trim()) { v1ShowErr(id, lbl + ' 為必填'); ok = false; }
-  }
-  const ind = document.getElementById('f-industry');
-  if (ind && !ind.value) { v1ShowErr('f-industry', '請選擇產業類別'); ok = false; }
-  if (ok) goStep(2);
-}
-function v1ValidateStep2() {
-  v1ClearErrs(); let ok = true;
-  const yr = document.getElementById('f-year');
-  if (!yr?.value.trim()) { v1ShowErr('f-year', '盤查年度為必填'); ok = false; }
-  const bm = document.getElementById('f-boundary');
-  if (bm && !bm.value) { v1ShowErr('f-boundary', '請選擇邊界劃定方法'); ok = false; }
-  const bd = document.getElementById('f-boundary-desc');
-  if (bd && !bd.value.trim()) { v1ShowErr('f-boundary-desc', '組織邊界說明為必填'); ok = false; }
-  if (ok) goStep(3);
-}
+// ── Keyboard navigation (tabindex) ────────────────────────
+(function initTabIndex() {
+  var focusable = document.querySelectorAll(
+    '#panel-1 input, #panel-1 select, #panel-1 textarea, #panel-1 button,' +
+    '#panel-2 input, #panel-2 select, #panel-2 textarea, #panel-2 button,' +
+    '#panel-3 input, #panel-3 select, #panel-3 textarea, #panel-3 button'
+  );
+  focusable.forEach(function(el, i) { el.setAttribute('tabindex', i + 1); });
+})();
 
 </script>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;600;700&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
+/* ── 設計語言：工業精密 × 永續深綠 ── */
 :root {
-  /* ── Deep navy tech palette ── */
-  --bg:    #0d1117;   /* main background */
-  --bg2:   #161b22;   /* cards / panels */
-  --bg3:   #21262d;   /* elevated surfaces */
-  --border:#30363d;   /* borders */
-  --accent:#00d4aa;   /* primary cyan-green */
-  --accent2:#00b894;  /* accent darker */
-  --accent3:#55efc4;  /* accent lighter */
-  --amber: #f9a825;   /* scope 1 / warning */
-  --red:   #ff5252;   /* error / scope alert */
-  --blue:  #58a6ff;   /* scope 3 / info */
-  --text:  #e6edf3;   /* primary text */
-  --text2: #8b949e;   /* secondary text */
-  --text3: #484f58;   /* muted text */
-  --mono:  'IBM Plex Mono', monospace;
-  --sans:  'Noto Sans TC', sans-serif;
-  --serif: 'DM Serif Display', serif;
+  --ink:   #0a0f0d;
+  --bg:    #0f1612;
+  --bg2:   #151d19;
+  --bg3:   #1c2620;
+  --bg4:   #222e28;
+  --line:  #2a3a32;
+  --line2: #364840;
+  --ac:    #00d4aa;   /* 主綠 */
+  --ac2:   #00b894;
+  --ac3:   #55efc4;
+  --gold:  #d4a853;
+  --red:   #e05c5c;
+  --blue:  #5b9bd5;
+  --t1:    #e8f0eb;
+  --t2:    #8fa899;
+  --t3:    #4a6058;
+  --mono:  "IBM Plex Mono", monospace;
+  --serif: "Noto Serif TC", serif;
+  --sans:  "Noto Sans TC", sans-serif;
 }
-* { margin:0; padding:0; box-sizing:border-box; }
-body { background:var(--bg); color:var(--text); font-family:var(--sans); min-height:100vh; overflow-x:hidden; }
-
-/* ── Header ── */
-header { border-bottom:1px solid var(--border); padding:16px 48px; display:flex; align-items:center; gap:20px; background:var(--bg2); }
-.logo-mark { width:48px; height:36px; background:var(--accent2); display:inline-flex; align-items:center; justify-content:center; color:var(--accent3); font-family:var(--mono); font-size:11px; font-weight:500; flex-shrink:0; letter-spacing:-0.5px; }
-.site-title { font-size:20px; font-weight:700; letter-spacing:-0.5px; }
-.site-subtitle { font-family:var(--mono); font-size:11px; color:var(--text2); letter-spacing:2px; text-transform:uppercase; margin-left:auto; }
-
-main { max-width:1100px; margin:0 auto; padding:52px 48px; background:var(--bg); }
-
-/* ── Steps ── */
-.steps-nav { display:flex; gap:0; margin-bottom:52px; border:1px solid var(--border); overflow:hidden; }
-.step-item { flex:1; padding:14px 20px; text-align:center; cursor:pointer; border-right:1px solid var(--border); background:var(--bg2); transition:all .2s; position:relative; color:var(--text2); }
-.step-item:last-child { border-right:none; }
-.step-item.active { background:var(--accent2); color:white; }
-.step-item.done { background:var(--bg3); color:var(--text2); }
-.step-num { font-family:'DM Mono',monospace; font-size:10px; letter-spacing:2px; opacity:.6; display:block; margin-bottom:3px; }
-.step-label { font-size:13px; font-weight:600; }
-
-/* ── Section panels ── */
-.panel { display:none; }
-.panel.active { display:block; animation:fadeUp .4s ease; }
-@keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
-
-.section-label { font-family:'DM Mono',monospace; font-size:10px; letter-spacing:3px; text-transform:uppercase; color:var(--text2); margin-bottom:20px; }
-.panel-title { font-size:28px; font-weight:300; letter-spacing:-1px; margin-bottom:8px; }
-.panel-desc { font-size:14px; color:#4a5a4d; line-height:1.7; margin-bottom:36px; max-width:600px; }
-
-/* ── Form inputs ── */
-.form-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:32px; }
-.form-grid-3 { grid-template-columns:1fr 1fr 1fr; }
-.form-group { display:flex; flex-direction:column; gap:6px; }
-.form-group.full { grid-column:1/-1; }
-label { font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--text2); }
-label span.req { color:var(--red); }
-input[type=text], input[type=number], select, textarea {
-  padding:10px 14px; border:1px solid var(--border); background:var(--bg2); font-family:var(--mono); font-size:12px; color:var(--accent3);
-  transition:border-color .15s; border-radius:0; -webkit-appearance:none;
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--t1);
+  font-family: var(--sans);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.6;
 }
-input:focus, select:focus, textarea:focus { outline:none; border-color:var(--accent2); }
-textarea { resize:vertical; min-height:80px; line-height:1.6; }
-select { cursor:pointer; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238a9e8f' stroke-width='1.5' fill='none'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 14px center; padding-right:36px; }
-.form-hint { font-size:11px; color:var(--text2); font-family:'DM Mono',monospace; margin-top:3px; }
 
-/* ── Upload zone ── */
-.upload-panel { border:2px dashed var(--ink3); background:var(--bg2); padding:36px; text-align:center; cursor:pointer; transition:all .2s; }
-.upload-panel:hover, .upload-panel.drag-over { border-color:var(--accent); background:rgba(82,183,136,.07); transform:translateY(-2px); }
-.upload-icon { width:52px; height:52px; margin:0 auto 14px; background:var(--accent); display:flex; align-items:center; justify-content:center; }
-.upload-icon svg { color:white; }
-.upload-label { font-size:16px; font-weight:600; margin-bottom:6px; color:var(--accent2); }
-.upload-hint { font-family:'DM Mono',monospace; font-size:11px; color:var(--text2); letter-spacing:1px; }
-#file-input { display:none; }
-.file-info { margin-top:14px; padding:10px 14px; background:rgba(82,183,136,.1); border-left:3px solid var(--accent); font-family:var(--mono); font-size:12px; color:var(--accent3); display:none; text-align:left; }
-.progress-bar { height:3px; background:var(--border); margin-top:10px; display:none; }
-.progress-fill { height:100%; background:var(--accent2); width:0%; transition:width .4s ease; }
-.error-box { display:none; padding:12px 16px; background:rgba(230,57,70,.1); border-left:3px solid var(--red); font-family:var(--mono); font-size:12px; color:var(--red); margin-top:12px; }
+/* ── HEADER ── */
+.hdr-home {
+  display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px;
+  color: var(--t3); font-size: 16px;
+  text-decoration: none; border: 1px solid var(--line);
+  transition: all .15s; flex-shrink: 0;
+  font-family: var(--mono);
+}
+.hdr-home:hover { color: var(--ac); border-color: var(--ac); background: rgba(0,212,170,.06); }
 
-/* ── Template cards ── */
-.template-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:32px; }
-.template-card { border:1px solid var(--border); padding:20px; background:var(--bg2); cursor:pointer; transition:all .2s; position:relative; color:var(--text); }
-.template-card:hover { border-color:var(--accent); box-shadow:3px 3px 0 rgba(82,183,136,.3); }
-.template-card.active { border-color:var(--accent); background:rgba(82,183,136,.08); box-shadow:3px 3px 0 rgba(82,183,136,.4); }
-.template-card.active::after { content:'✓'; position:absolute; top:10px; right:10px; background:var(--accent2); color:white; width:18px; height:18px; display:flex; align-items:center; justify-content:center; font-size:10px; border-radius:50%; }
-.template-icon { font-size:24px; margin-bottom:10px; }
-.template-name { font-weight:700; font-size:13px; margin-bottom:4px; }
-.template-desc { font-size:11px; color:var(--text2); line-height:1.5; }
+.hdr {
+  position: sticky; top: 0; z-index: 300;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; gap: 16px;
+  padding: 0 32px; height: 52px;
+}
+.hdr-logo {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--mono); font-size: 10px; font-weight: 600;
+  letter-spacing: 3px; color: var(--ac); text-transform: uppercase;
+}
+.hdr-logo-mark {
+  width: 28px; height: 28px;
+  border: 1.5px solid var(--ac);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; font-weight: 700;
+}
+.hdr-sep { flex: 1; }
+.hdr-tag {
+  font-family: var(--mono); font-size: 9px; letter-spacing: 2px;
+  color: var(--t3); border: 1px solid var(--line); padding: 3px 9px;
+  text-transform: uppercase;
+}
 
-/* ── Buttons ── */
-.btn-row { display:flex; gap:12px; margin-top:32px; }
-.btn-primary { padding:14px 32px; background:var(--accent); color:#000; border:none; font-family:var(--mono); font-size:14px; font-weight:600; cursor:pointer; letter-spacing:.5px; transition:all .2s; }
-.btn-primary:hover { background:var(--accent); }
-.btn-primary:disabled { background:var(--text2); cursor:not-allowed; }
-.btn-secondary { padding:14px 28px; border:1px solid var(--accent); background:transparent; color:var(--accent); font-family:'Noto Serif TC',serif; font-size:14px; font-weight:600; cursor:pointer; transition:all .2s; letter-spacing:.5px; }
-.btn-secondary:hover { background:rgba(82,183,136,.1); color:var(--accent3); }
-.btn-outline { padding:14px 24px; border:1px solid var(--border); background:var(--bg2); color:var(--text2); font-family:'Noto Serif TC',serif; font-size:13px; cursor:pointer; transition:all .2s; }
-.btn-outline:hover { border-color:var(--accent2); color:var(--accent2); }
+/* ── STEP NAV ── */
+.snav {
+  display: flex;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+}
+.sn {
+  flex: 1; min-width: 130px;
+  padding: 11px 18px;
+  text-align: center;
+  border-right: 1px solid var(--line);
+  cursor: pointer;
+  transition: background .15s;
+  user-select: none;
+  position: relative;
+}
+.sn:last-child { border-right: none; }
+.sn-num {
+  display: block;
+  font-family: var(--mono); font-size: 8px;
+  letter-spacing: 2.5px; color: var(--t3);
+  text-transform: uppercase; margin-bottom: 3px;
+}
+.sn-lbl { font-size: 12px; font-weight: 500; color: var(--t2); }
+.sn.active { background: var(--bg3); }
+.sn.active .sn-num { color: var(--ac); }
+.sn.active .sn-lbl { color: var(--t1); }
+.sn.active::after {
+  content: '';
+  position: absolute; bottom: -1px; left: 0; right: 0;
+  height: 2px; background: var(--ac);
+}
+.sn.done .sn-num { color: var(--ac2); }
+.sn.done .sn-num::after { content: ' ✓'; }
+.sn.done .sn-lbl { color: var(--t3); }
 
-/* ── Scope filter ── */
-.scope-filter { display:flex; gap:5px; align-items:center; }
-.scope-btn { padding:4px 10px; border:1px solid var(--border); background:var(--bg2); color:var(--text2); font-family:'DM Mono',monospace; font-size:10px; letter-spacing:1px; cursor:pointer; transition:all .15s; }
-.scope-btn:hover { border-color:var(--accent); color:var(--accent); }
-.scope-btn.active-all { background:var(--accent2); border-color:var(--accent); color:var(--accent3); }
-.scope-btn.active-s1  { background:rgba(233,196,106,.2); border-color:var(--amber); color:var(--amber); }
-.scope-btn.active-s2  { background:rgba(82,183,136,.2); border-color:var(--accent); color:var(--accent3); }
-.scope-btn.active-s3  { background:rgba(122,158,138,.2); border-color:var(--text2); color:var(--text2); }
-.data-table tbody tr.hidden-row { display:none; }
+/* ── MAIN CONTAINER ── */
+.wrap { max-width: 860px; margin: 0 auto; padding: 40px 24px 80px; }
 
-/* ══════════════════════════════════════
-   REPORT STYLES (print-friendly)
-══════════════════════════════════════ */
-.report-wrap { background:#f8f6f0; border:1px solid var(--border); }
+/* ── PANELS ── */
+.panel { display: none; }
+.panel.active { display: block; animation: fade-up .35s ease both; }
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 
-/* Cover page */
-.rpt-cover { background:#1a3a2a; color:white; padding:56px 56px 48px; position:relative; overflow:hidden; }
-.rpt-cover::before { content:'GHG'; position:absolute; right:-10px; bottom:-30px; font-size:220px; font-weight:700; color:rgba(255,255,255,.05); font-family:'DM Mono',monospace; line-height:1; }
-.rpt-cover-meta { font-family:'DM Mono',monospace; font-size:10px; letter-spacing:3px; opacity:.65; margin-bottom:14px; }
-.rpt-cover-title { font-size:38px; font-weight:300; letter-spacing:-1.5px; margin-bottom:12px; }
-.rpt-cover-org { font-size:20px; font-weight:700; opacity:.92; margin-bottom:6px; }
-.rpt-cover-period { font-family:'DM Mono',monospace; font-size:12px; opacity:.7; }
-.rpt-cover-badges { margin-top:28px; display:flex; gap:10px; }
-.rpt-badge { border:1px solid rgba(255,255,255,.35); padding:4px 12px; font-family:'DM Mono',monospace; font-size:10px; letter-spacing:1px; opacity:.8; }
+/* ── PANEL HEADER ── */
+.ph-eye {
+  font-family: var(--mono); font-size: 9px; letter-spacing: 3px;
+  color: var(--ac); text-transform: uppercase; margin-bottom: 8px;
+}
+.ph-title {
+  font-family: var(--serif); font-size: 30px; font-weight: 300;
+  color: var(--t1); margin-bottom: 8px; letter-spacing: -.3px;
+}
+.ph-desc {
+  font-size: 13px; color: var(--t2); line-height: 1.75;
+  max-width: 540px; margin-bottom: 36px;
+}
 
-/* Section headings inside report */
-.rpt-section { padding:32px 40px; border-bottom:1px solid var(--border); }
-.rpt-section:last-child { border-bottom:none; }
-.rpt-section-num { font-family:'DM Mono',monospace; font-size:10px; letter-spacing:2px; color:var(--text2); margin-bottom:6px; }
-.rpt-section-title { font-size:17px; font-weight:700; color:var(--accent2); margin-bottom:16px; padding-bottom:10px; border-bottom:2px solid var(--accent3); }
-.rpt-body-text { font-size:13px; line-height:1.9; color:#333; }
-.rpt-body-text p { margin-bottom:12px; }
-.rpt-body-text p:last-child { margin-bottom:0; }
+/* ── FORM SECTIONS ── */
+.fsec-label {
+  font-family: var(--mono); font-size: 8px; letter-spacing: 3px;
+  text-transform: uppercase; color: var(--t3);
+  padding: 18px 0 10px;
+  border-top: 1px solid var(--line);
+  margin-top: 22px;
+}
+.fsec-label:first-of-type { margin-top: 0; border-top: none; padding-top: 0; }
+
+/* ── FORM GRID ── */
+.fg { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 20px; }
+.fg-full { grid-column: 1 / -1; }
+.ff { display: flex; flex-direction: column; gap: 6px; }
+.ff label {
+  font-family: var(--mono); font-size: 9px; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--t2);
+}
+.req { color: var(--red); }
+input, select, textarea {
+  background: var(--bg3);
+  border: 1px solid var(--line2);
+  color: var(--t1);
+  font-family: var(--sans); font-size: 13px;
+  padding: 9px 12px;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+  -webkit-appearance: none;
+  border-radius: 0;
+  width: 100%;
+}
+input::placeholder, textarea::placeholder { color: var(--t3); }
+select option { background: var(--bg3); }
+input:focus, select:focus, textarea:focus {
+  border-color: var(--ac);
+  box-shadow: 0 0 0 3px rgba(0,212,170,.12);
+  outline: none;
+}
+.btn-primary:focus-visible, .btn-ghost:focus-visible {
+  outline: 2px solid var(--ac);
+  outline-offset: 2px;
+}
+.finput-err {
+  border-color: var(--red) !important;
+  box-shadow: 0 0 0 3px rgba(224,92,92,.1) !important;
+}
+textarea { resize: vertical; min-height: 72px; }
+.fhint { font-family: var(--mono); font-size: 10px; color: var(--t3); }
+.ferr  { font-family: var(--mono); font-size: 10px; color: var(--red); margin-top: 2px; }
+
+/* ── BUTTONS ── */
+.btn-row { display: flex; gap: 10px; margin-top: 32px; align-items: center; }
+.btn-primary {
+  padding: 11px 28px;
+  background: var(--ac); color: var(--ink);
+  font-family: var(--mono); font-size: 11px; font-weight: 600;
+  border: none; cursor: pointer;
+  letter-spacing: .5px;
+  transition: background .15s, transform .1s;
+}
+.btn-primary:hover { background: var(--ac3); }
+.btn-primary:active { transform: scale(.98); }
+.btn-primary:disabled {
+  background: var(--bg4); color: var(--t3); cursor: not-allowed;
+}
+.btn-ghost {
+  padding: 11px 22px;
+  background: transparent; color: var(--t2);
+  font-family: var(--mono); font-size: 11px;
+  border: 1px solid var(--line2); cursor: pointer;
+  transition: all .15s;
+}
+.btn-ghost:hover { border-color: var(--t2); color: var(--t1); }
+
+/* ── TEMPLATE CARDS ── */
+.tpl-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 24px; }
+.tpl-card {
+  padding: 16px; border: 1px solid var(--line2);
+  background: var(--bg2); cursor: pointer;
+  transition: all .15s; position: relative;
+}
+.tpl-card:hover { border-color: var(--ac2); background: var(--bg3); }
+.tpl-card.active {
+  border-color: var(--ac); background: var(--bg3);
+}
+.tpl-card.active::before {
+  content: ''; position: absolute; top: 0; left: 0;
+  width: 3px; height: 100%; background: var(--ac);
+}
+.tpl-name { font-size: 13px; font-weight: 600; margin-bottom: 4px; color: var(--t1); }
+.tpl-desc { font-family: var(--mono); font-size: 10px; color: var(--t2); }
+
+/* ── UPLOAD ZONE ── */
+.upzone {
+  border: 2px dashed var(--line2);
+  padding: 48px 32px; text-align: center;
+  cursor: pointer; transition: all .2s;
+  background: var(--bg2); position: relative;
+}
+.upzone:hover, .upzone.drag {
+  border-color: var(--ac); background: rgba(61,220,132,.04);
+}
+.upzone-icon { font-size: 36px; display: block; margin-bottom: 12px; }
+.upzone-title { font-size: 16px; font-weight: 600; margin-bottom: 6px; color: var(--t1); }
+.upzone-sub { font-family: var(--mono); font-size: 11px; color: var(--t2); }
+.upzone-demo-link {
+  display: inline-block; margin-top: 14px;
+  font-family: var(--mono); font-size: 11px; color: var(--ac);
+  text-decoration: underline; cursor: pointer;
+}
+input[type=file] { display: none; }
+.file-tag {
+  display: none; margin-top: 12px;
+  padding: 10px 14px;
+  background: rgba(61,220,132,.08);
+  border-left: 2px solid var(--ac);
+  font-family: var(--mono); font-size: 11px; color: var(--ac3);
+}
+.progress { display: none; height: 2px; background: var(--bg4); margin-top: 10px; }
+.progress-fill { height: 100%; background: var(--ac); width: 0; transition: width .4s; }
+.errbox {
+  display: none; margin-top: 10px; padding: 10px 14px;
+  background: rgba(224,92,92,.08);
+  border-left: 2px solid var(--red);
+  font-family: var(--mono); font-size: 11px; color: var(--red);
+}
+
+/* ── LOADING OVERLAY ── */
+.loading {
+  display: none; position: fixed; inset: 0;
+  background: rgba(10,15,13,.92);
+  z-index: 500; align-items: center; justify-content: center;
+  flex-direction: column; gap: 16px;
+}
+.loading.show { display: flex; }
+.spinner {
+  width: 40px; height: 40px;
+  border: 2px solid var(--line2);
+  border-top-color: var(--ac);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-txt {
+  font-family: var(--mono); font-size: 11px;
+  letter-spacing: 2px; color: var(--ac3);
+}
+
+/* ══════════════════════════════════════════════════
+   REPORT — LIGHT PAPER, ALL COLORS EXPLICIT
+   ══════════════════════════════════════════════════ */
+.rpt-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 0; margin-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+.rpt-bar-label {
+  font-family: var(--mono); font-size: 10px;
+  color: var(--ac3); letter-spacing: 2px;
+}
+.rpt-bar-btns { display: flex; gap: 8px; }
+.btn-rpt {
+  padding: 7px 14px;
+  background: transparent;
+  border: 1px solid var(--line2);
+  color: var(--t2);
+  font-family: var(--mono); font-size: 10px; cursor: pointer;
+  transition: all .15s;
+}
+.btn-rpt:hover { border-color: var(--ac); color: var(--ac); }
+
+/* Report paper */
+.rpt {
+  background: #f7f4ee;
+  border: 1px solid #c4c0b5;
+  color: #1a1a1a;
+  font-family: "Noto Sans TC", sans-serif;
+}
+
+/* Cover */
+.r-cov {
+  background: #0f2a22;
+  padding: 56px 48px 48px;
+  position: relative; overflow: hidden;
+}
+.r-cov::after {
+  content: 'GHG';
+  position: absolute; right: -8px; bottom: -24px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 168px; font-weight: 700;
+  color: rgba(61,220,132,.07);
+  line-height: 1; pointer-events: none;
+  letter-spacing: -8px;
+}
+.r-cov-label {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 9px; letter-spacing: 4px;
+  color: rgba(255,255,255,.45); margin-bottom: 22px;
+  text-transform: uppercase;
+}
+.r-cov-title {
+  font-family: "Noto Serif TC", serif;
+  font-size: 40px; font-weight: 300;
+  color: #ffffff; line-height: 1.2;
+  letter-spacing: -1px; margin-bottom: 20px;
+}
+.r-cov-org {
+  font-size: 18px; font-weight: 700;
+  color: #ffffff; margin-bottom: 4px;
+}
+.r-cov-period {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px; color: rgba(255,255,255,.5);
+  margin-bottom: 24px;
+}
+.r-cov-badges { display: flex; gap: 8px; flex-wrap: wrap; }
+.r-badge {
+  border: 1px solid rgba(255,255,255,.25);
+  padding: 4px 12px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 9px; letter-spacing: 1.5px;
+  color: rgba(255,255,255,.75);
+  text-transform: uppercase;
+}
+
+/* Section */
+.r-sec {
+  padding: 32px 48px;
+  border-bottom: 1px solid #d4d0c8;
+}
+.r-sec:last-child { border-bottom: none; }
+.r-sec-num {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 9px; letter-spacing: 2px;
+  color: #7a9e87; margin-bottom: 5px;
+}
+.r-sec-title {
+  font-family: "Noto Serif TC", serif;
+  font-size: 20px; font-weight: 400;
+  color: #1a3328; margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #c8d8c0;
+}
 
 /* Info table */
-.rpt-info-table { width:100%; border-collapse:collapse; font-size:13px; margin-top:8px; }
-.rpt-info-table th { width:200px; padding:9px 14px; background:var(--bg3); font-weight:700; font-size:11px; letter-spacing:.5px; border:1px solid var(--border); text-align:left; vertical-align:top; }
-.rpt-info-table td { padding:9px 14px; border:1px solid var(--border); line-height:1.6; vertical-align:top; }
+.r-tbl {
+  width: 100%; border-collapse: collapse;
+  font-size: 13px; margin-bottom: 14px;
+}
+.r-tbl th {
+  width: 180px; padding: 9px 13px;
+  background: #ece8de;
+  font-family: "Noto Sans TC", sans-serif;
+  font-size: 11px; font-weight: 700;
+  color: #2d4a35;
+  border: 1px solid #d0ccc0;
+  text-align: left; vertical-align: top;
+}
+.r-tbl td {
+  padding: 9px 13px;
+  background: #f7f4ee;
+  color: #1a1a1a;
+  border: 1px solid #d0ccc0;
+  line-height: 1.65; vertical-align: top;
+  font-family: "Noto Sans TC", sans-serif;
+  font-size: 13px;
+}
+/* Editable */
+.r-ed { cursor: text; }
+.r-ed:hover { background: #f0ebe0 !important; }
+.r-ed:focus {
+  background: #ffffff !important;
+  outline: 2px solid #2d8a50;
+  outline-offset: -2px;
+}
+.r-ed:empty::before {
+  content: attr(data-ph);
+  color: #b5afa2;
+  font-style: italic; font-weight: 300;
+}
+.r-ed.err { outline: 2px solid #c0562a !important; }
+.ed-hint {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px; color: #8aae92; margin-bottom: 8px;
+}
+.ed-warn {
+  display: none; margin-bottom: 10px;
+  padding: 8px 13px;
+  background: #fff8e8;
+  border-left: 3px solid #d4a853;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px; color: #7a5800;
+}
 
 /* Stats row */
-.stats-row { display:grid; grid-template-columns:repeat(4,1fr); }
-.stat-box { padding:24px; border-right:1px solid var(--border); border-bottom:1px solid var(--border); }
-.stat-box:last-child { border-right:none; }
-.stat-label { font-family:'DM Mono',monospace; font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--text2); margin-bottom:6px; }
-.stat-value { font-size:30px; font-weight:700; color:var(--accent2); line-height:1; margin-bottom:3px; }
-.stat-unit { font-size:11px; color:var(--text2); font-family:'DM Mono',monospace; }
+.r-stats {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  border: 1px solid #d0ccc0; margin-bottom: 24px;
+}
+.r-stat {
+  padding: 20px 16px;
+  border-right: 1px solid #d0ccc0;
+}
+.r-stat:last-child { border-right: none; }
+.r-stat-label {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 9px; letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #6a8a75; margin-bottom: 8px;
+}
+.r-stat-val {
+  font-size: 28px; font-weight: 700;
+  line-height: 1; margin-bottom: 4px;
+  font-family: "IBM Plex Mono", monospace;
+}
+.r-stat-unit {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px; color: #8a9e8f;
+}
+
+/* Two col */
+.r-two { display: grid; grid-template-columns: 1fr 240px; gap: 24px; }
+@media (max-width: 640px) {
+  .r-two { grid-template-columns: 1fr; }
+  .r-stats { grid-template-columns: 1fr 1fr; }
+  .r-inten { grid-template-columns: 1fr 1fr; }
+  .tpl-grid { grid-template-columns: 1fr; }
+  .fg { grid-template-columns: 1fr; }
+  .fg-full { grid-column: 1; }
+  .wrap { padding: 24px 16px 60px; }
+  .r-sec { padding: 24px 20px; }
+  .r-cov { padding: 36px 24px; }
+  .r-cov-title { font-size: 28px; }
+}
+@media (max-width: 420px) {
+  .r-stats { grid-template-columns: 1fr 1fr; }
+  .r-stat-val { font-size: 20px; }
+  .snav { overflow-x: auto; }
+  .sn { min-width: 110px; }
+}
+
+/* Sub title */
+.r-sub {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px; letter-spacing: 2px;
+  text-transform: uppercase; color: #4a6a52;
+  margin-bottom: 12px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid #d0ccc0;
+}
+
+/* Scope filter */
+.r-filter {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  margin-bottom: 10px; align-items: center;
+}
+.r-fbtn {
+  padding: 4px 11px;
+  border: 1px solid #d0ccc0;
+  background: #ece8de;
+  color: #5a6a58;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px; cursor: pointer;
+  transition: all .15s;
+}
+.r-fbtn.f-all  { background: #0f2a22; border-color: #1a3328; color: #fff; }
+.r-fbtn.f-s1   { background: rgba(160,70,20,.1); border-color: #a04614; color: #a04614; }
+.r-fbtn.f-s2   { background: rgba(26,90,44,.1);  border-color: #1a5a2c; color: #1a5a2c; }
+.r-fbtn.f-s3   { background: rgba(30,60,110,.1); border-color: #1e3c6e; color: #1e3c6e; }
+.r-count {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px; color: #8a9e8f;
+}
 
 /* Emission table */
-.data-table { width:100%; border-collapse:collapse; font-size:12px; }
-.data-table th { text-align:left; padding:8px 12px; background:var(--bg3); font-weight:700; font-size:11px; letter-spacing:.3px; border-bottom:2px solid var(--bg); border-top:1px solid var(--border); }
-.data-table td { padding:9px 12px; border-bottom:1px solid var(--border); }
-.data-table tr:hover td { background:rgba(82,183,136,.05); }
-.num { font-family:'DM Mono',monospace; text-align:right; }
-.scope-1 { color:var(--amber); font-weight:700; }
-.scope-2 { color:var(--accent); font-weight:700; }
-.scope-3 { color:var(--text2); font-weight:700; }
-.total-row td { font-weight:700; background:var(--bg3); border-top:2px solid var(--bg); }
-
-/* Scope chart */
-.scope-bar-item { margin-bottom:18px; }
-.scope-bar-header { display:flex; justify-content:space-between; margin-bottom:5px; font-size:12px; }
-.scope-bar-label { font-weight:700; }
-.scope-bar-value { font-family:'DM Mono',monospace; color:var(--text2); font-size:11px; }
-.scope-bar-track { height:8px; background:var(--bg3); overflow:hidden; }
-.scope-bar-fill { height:100%; transition:width 1s ease; }
-.fill-1 { background:var(--amber); } .fill-2 { background:var(--accent); } .fill-3 { background:var(--text2); }
-
-/* Two-col layout inside report */
-.rpt-two-col { display:grid; grid-template-columns:2fr 1fr; gap:0; }
-.rpt-two-col > div { padding:28px 36px; }
-.rpt-two-col > div + div { border-left:1px solid var(--border); }
-
-/* Report card sub-title */
-.rpt-sub-title { font-size:13px; font-weight:700; letter-spacing:.3px; margin-bottom:12px; color:var(--accent2); border-bottom:1px solid var(--border); padding-bottom:8px; }
-
-/* Suggestion list */
-.suggestion-list { list-style:none; }
-.suggestion-item { padding:10px 0; border-bottom:1px solid var(--border); display:flex; gap:10px; align-items:flex-start; font-size:12px; line-height:1.6; }
-.suggestion-item:last-child { border-bottom:none; }
-.suggestion-dot { width:7px; height:7px; background:var(--accent); flex-shrink:0; margin-top:5px; }
-
-/* Card badges */
-.card-badge { font-family:'DM Mono',monospace; font-size:10px; background:var(--bg3); padding:3px 8px; color:var(--text2); }
-.card-header { padding:14px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
-.card-title { font-size:12px; font-weight:700; letter-spacing:.3px; }
-
-/* Loading */
-.loading-overlay { display:none; position:fixed; inset:0; background:rgba(244,240,232,.92); z-index:500; align-items:center; justify-content:center; flex-direction:column; gap:20px; }
-.loading-overlay.show { display:flex; }
-.loading-spinner { width:44px; height:44px; border:3px solid var(--border); border-top-color:var(--accent2); border-radius:50%; animation:spin .8s linear infinite; }
-@keyframes spin { to{transform:rotate(360deg)} }
-.loading-text { font-family:'DM Mono',monospace; font-size:12px; color:var(--accent2); letter-spacing:2px; }
-
-footer { border-top:1px solid var(--border); padding:20px 48px; display:flex; justify-content:space-between; align-items:center; font-family:'DM Mono',monospace; font-size:11px; color:var(--text2); margin-top:60px; }
-
-@media print {
-  header, footer, .steps-nav, #input-panel, .btn-row, .scope-filter { display:none !important; }
-  #report-panel { display:block !important; }
-  .panel { display:block !important; }
-  .report-wrap { border:none; }
-  .rpt-section { padding:20px 0; }
-  main { padding:0; }
+.r-etbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+.r-etbl th {
+  padding: 8px 11px;
+  background: #ece8de;
+  border-bottom: 2px solid #1a3328;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 9px; letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #2d4a35; text-align: left;
 }
-@media (max-width:768px) {
-  main { padding:32px 20px; }
-  .form-grid, .form-grid-3 { grid-template-columns:1fr; }
-  .template-grid { grid-template-columns:1fr; }
-  .stats-row { grid-template-columns:repeat(2,1fr); }
-  .rpt-two-col { grid-template-columns:1fr; }
-  .steps-nav { flex-direction:column; }
+.r-etbl td {
+  padding: 9px 11px;
+  border-bottom: 1px solid #d8d4c8;
+  color: #1a1a1a;
+  font-family: "Noto Sans TC", sans-serif;
+  font-size: 12px;
+  background: #f7f4ee;
+}
+.r-etbl tbody tr:hover td { background: #f0ebe0; }
+.r-etbl .rn { text-align: right; font-family: "IBM Plex Mono", monospace; }
+.r-etbl tfoot td {
+  background: #ece8de;
+  border-top: 2px solid #1a3328;
+  border-bottom: none;
+  font-weight: 700; color: #1a1a1a;
+  padding: 9px 11px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+}
+.c1 { color: #a04614 !important; font-weight: 700; }
+.c2 { color: #1a5a2c !important; font-weight: 700; }
+.c3 { color: #1e3c6e !important; font-weight: 700; }
+.hrow { display: none; }
+
+/* Scope bars */
+.r-bar { margin-bottom: 16px; }
+.r-bar-head {
+  display: flex; justify-content: space-between;
+  margin-bottom: 5px;
+}
+.r-bar-label {
+  font-family: "Noto Sans TC", sans-serif;
+  font-size: 12px; font-weight: 600; color: #1a1a1a;
+}
+.r-bar-val {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px; color: #6a8a75;
+}
+.r-bar-track {
+  height: 8px; background: #e0dbd0;
+  border-radius: 2px; overflow: hidden;
+}
+.r-bar-fill { height: 100%; border-radius: 2px; width: 0; transition: width .8s cubic-bezier(.4,0,.2,1); }
+.r-bar-fill.anim { width: var(--bar-w); }
+.bf1 { background: #a04614; }
+.bf2 { background: #1a5a2c; }
+.bf3 { background: #1e3c6e; }
+
+/* Intensity grid */
+.r-inten {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  border: 1px solid #d0ccc0;
+}
+.r-ibox {
+  padding: 18px 14px;
+  border-right: 1px solid #d0ccc0;
+}
+.r-ibox:last-child { border-right: none; }
+
+/* Body text */
+.r-body {
+  font-family: "Noto Sans TC", sans-serif;
+  font-size: 13px; line-height: 1.9; color: #2a2a2a;
+}
+.r-body p { margin-bottom: 10px; }
+.r-body strong { color: #1a3328; }
+
+/* Suggestions */
+.r-sugs { list-style: none; margin-top: 14px; }
+.r-sug {
+  display: flex; gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #d8d4c8;
+  color: #1a1a1a;
+  font-family: "Noto Sans TC", sans-serif;
+  font-size: 13px; line-height: 1.7;
+}
+.r-sug:last-child { border-bottom: none; }
+.r-sug-dot {
+  width: 8px; height: 8px;
+  background: #2d7a4f; flex-shrink: 0; margin-top: 7px;
+}
+
+/* Sign row */
+.r-sign { display: flex; gap: 36px; margin-top: 32px; }
+.r-signblk { flex: 1; }
+.r-signline { border-bottom: 1.5px solid #1a1a1a; height: 42px; margin-bottom: 6px; }
+.r-signlbl {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 9px; letter-spacing: 2px;
+  color: #8a9e8f; text-transform: uppercase;
+}
+.r-signnm {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px; color: #5a7a65; margin-top: 4px;
+}
+
+/* Print */
+@media print {
+  .hdr, .snav, .loading, .rpt-bar, .btn-row, .r-filter { display: none !important; }
+  .panel { display: block !important; }
+  .rpt { border: none; }
+  body { background: #fff; }
 }
 </style>
 </head>
 <body>
 
-<header>
-  <div class="logo-mark">CO₂</div>
-  <span class="site-title">碳盤查報告系統</span>
-  <span class="site-subtitle">GHG Inventory · ISO 14064-1:2018</span>
+<!-- HEADER -->
+<header class="hdr">
+  <a href="index.html" class="hdr-home" title="回首頁">←</a>
+  <div class="hdr-logo">
+    <div class="hdr-logo-mark">GHG</div>
+    碳盤查報告系統
+  </div>
+  <div class="hdr-sep"></div>
+  <div class="hdr-tag">ISO 14064-1 · 2018</div>
 </header>
 
-<main>
-
-  <!-- Step navigation -->
-  <div class="steps-nav">
-    <div class="step-item active" id="step1-nav" onclick="goStep(1)">
-      <span class="step-num">STEP 01</span>
-      <span class="step-label">組織基本資料</span>
-    </div>
-    <div class="step-item" id="step2-nav" onclick="goStep(2)">
-      <span class="step-num">STEP 02</span>
-      <span class="step-label">盤查邊界設定</span>
-    </div>
-    <div class="step-item" id="step3-nav" onclick="goStep(3)">
-      <span class="step-num">STEP 03</span>
-      <span class="step-label">上傳排放數據</span>
-    </div>
-    <div class="step-item" id="step4-nav" onclick="goStep(4)">
-      <span class="step-num">STEP 04</span>
-      <span class="step-label">生成報告</span>
-    </div>
+<!-- STEP NAV -->
+<nav class="snav">
+  <div class="sn active" id="sn1" onclick="navTo(1)">
+    <span class="sn-num">Step 01</span>
+    <span class="sn-lbl">組織基本資料</span>
   </div>
-
-  <!-- ══ STEP 1：組織基本資料 ══ -->
-  <div class="panel active" id="step1-panel">
-    <div class="section-label">Step 01 · 組織資訊</div>
-    <div class="panel-title">組織基本資料</div>
-    <div class="panel-desc">依 ISO 14064-1:2018 §7.2 規定，報告書應揭露組織名稱、地址、主要業務、負責人等基本資訊。標有 <span style="color:var(--red)">*</span> 為必填欄位。</div>
-
-    <div class="form-grid">
-      <div class="form-group">
-        <label>組織名稱 <span class="req">*</span></label>
-        <input type="text" id="f-org-name" placeholder="例：台灣綠能製造股份有限公司">
-      </div>
-      <div class="form-group">
-        <label>統一編號</label>
-        <input type="text" id="f-org-id" placeholder="例：12345678">
-      </div>
-      <div class="form-group">
-        <label>主要營業地址 <span class="req">*</span></label>
-        <input type="text" id="f-org-addr" placeholder="例：台灣台北市信義區...">
-      </div>
-      <div class="form-group">
-        <label>產業類別 <span class="req">*</span></label>
-        <select id="f-org-industry">
-          <option value="">— 請選擇 —</option>
-          <option>製造業</option>
-          <option>電子資訊業</option>
-          <option>化學石化業</option>
-          <option>食品飲料業</option>
-          <option>金融保險業</option>
-          <option>零售批發業</option>
-          <option>物流運輸業</option>
-          <option>建築營造業</option>
-          <option>醫療照護業</option>
-          <option>教育研究業</option>
-          <option>其他服務業</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>主要產品 / 服務</label>
-        <input type="text" id="f-org-product" placeholder="例：電子零組件製造、PCB生產">
-      </div>
-      <div class="form-group">
-        <label>員工人數</label>
-        <input type="number" id="f-org-employees" placeholder="例：850">
-      </div>
-      <div class="form-group">
-        <label>盤查負責人姓名 <span class="req">*</span></label>
-        <input type="text" id="f-contact-name" placeholder="例：王小明">
-      </div>
-      <div class="form-group">
-        <label>負責人職稱</label>
-        <input type="text" id="f-contact-title" placeholder="例：ESG 永續長">
-      </div>
-      <div class="form-group">
-        <label>聯絡電話</label>
-        <input type="text" id="f-contact-phone" placeholder="例：02-1234-5678">
-      </div>
-      <div class="form-group">
-        <label>電子信箱</label>
-        <input type="text" id="f-contact-email" placeholder="例：esg@company.com.tw">
-      </div>
-    </div>
-
-    <div class="btn-row">
-      <button class="btn-primary" onclick="v1ValidateStep1()">下一步：盤查邊界設定 →</button>
-    </div>
+  <div class="sn" id="sn2" onclick="navTo(2)">
+    <span class="sn-num">Step 02</span>
+    <span class="sn-lbl">盤查邊界設定</span>
   </div>
-
-  <!-- ══ STEP 2：盤查邊界設定 ══ -->
-  <div class="panel" id="step2-panel">
-    <div class="section-label">Step 02 · 盤查邊界</div>
-    <div class="panel-title">盤查邊界與方法論</div>
-    <div class="panel-desc">依 ISO 14064-1:2018 §7.3 規定，組織應界定組織邊界、報告邊界、盤查期間及基準年，並說明量化方法與排放係數來源。</div>
-
-    <div class="form-grid">
-      <div class="form-group">
-        <label>盤查年度 <span class="req">*</span></label>
-        <input type="number" id="f-year" placeholder="例：2024" value="2024">
-      </div>
-      <div class="form-group">
-        <label>盤查期間 <span class="req">*</span></label>
-        <input type="text" id="f-period" placeholder="例：2024/01/01 ~ 2024/12/31" value="2024/01/01 ~ 2024/12/31">
-      </div>
-      <div class="form-group">
-        <label>基準年 <span class="req">*</span></label>
-        <input type="number" id="f-base-year" placeholder="例：2021">
-        <div class="form-hint">第一次盤查請填寫本年度作為基準年</div>
-      </div>
-      <div class="form-group">
-        <label>組織邊界劃定方法 <span class="req">*</span></label>
-        <select id="f-boundary-method">
-          <option value="">— 請選擇 —</option>
-          <option value="equity">股權比例法 (Equity Share Approach)</option>
-          <option value="financial" selected>財務控制權法 (Financial Control Approach)</option>
-          <option value="operational">營運控制權法 (Operational Control Approach)</option>
-        </select>
-      </div>
-      <div class="form-group full">
-        <label>組織邊界說明（涵蓋廠區 / 設施）<span class="req">*</span></label>
-        <textarea id="f-org-boundary" placeholder="例：本次盤查邊界涵蓋台北總部辦公室、桃園廠區A、桃園廠區B及新竹研發中心，共計4個場址。租賃廠房依財務控制權法納入邊界。"></textarea>
-      </div>
-      <div class="form-group full">
-        <label>排除項目說明</label>
-        <textarea id="f-exclusion" placeholder="例：海外子公司（越南廠）因數據收集困難，本年度暫不納入盤查邊界，預計明年度擴大納入。" style="min-height:60px;"></textarea>
-      </div>
-      <div class="form-group">
-        <label>範疇一盤查方法</label>
-        <select id="f-method-s1">
-          <option>排放係數法 (Emission Factor Approach)</option>
-          <option>質量平衡法 (Mass Balance Method)</option>
-          <option>直接量測法 (Direct Measurement)</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>排放係數來源</label>
-        <select id="f-ef-source">
-          <option>行政院環境部公告係數</option>
-          <option>IPCC 2006 / 2019 GL</option>
-          <option>IPCC AR6 GWP100</option>
-          <option>GHG Protocol 係數資料庫</option>
-          <option>場址實測數據</option>
-          <option>混合使用（多方來源）</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>台灣電力排放係數 (kgCO₂e/kWh)</label>
-        <input type="number" id="f-elec-ef" value="0.494" step="0.001">
-        <div class="form-hint">環境部公告 2023 年度係數：0.494</div>
-      </div>
-      <div class="form-group">
-        <label>是否委託第三方查證</label>
-        <select id="f-verification">
-          <option value="no">否，本次為自行盤查</option>
-          <option value="yes">是，已委託外部查證機構</option>
-          <option value="planned">預計委託查證</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>查證機構名稱</label>
-        <input type="text" id="f-verifier" placeholder="例：BSI 英國標準協會、SGS、Bureau Veritas">
-      </div>
-      <div class="form-group">
-        <label>查證聲明書編號</label>
-        <input type="text" id="f-verify-no" placeholder="例：TW-GHG-2024-XXXXX">
-      </div>
-    </div>
-
-    <div class="btn-row">
-      <button class="btn-outline" onclick="goStep(1)">← 上一步</button>
-      <button class="btn-primary" onclick="v1ValidateStep2()">下一步：上傳排放數據 →</button>
-    </div>
+  <div class="sn" id="sn3" onclick="navTo(3)">
+    <span class="sn-num">Step 03</span>
+    <span class="sn-lbl">上傳排放數據</span>
   </div>
-
-  <!-- ══ STEP 3：上傳排放數據 ══ -->
-  <div class="panel" id="step3-panel">
-    <div class="section-label">Step 03 · 排放數據</div>
-    <div class="panel-title">上傳 Excel 排放數據</div>
-    <div class="panel-desc">請上傳包含排放源、活動數據、單位等欄位的 Excel 檔案。系統將自動辨識範疇並計算排放量。</div>
-
-    <!-- Template selection -->
-    <div class="section-label" style="margin-bottom:12px;">選擇行業範本（輔助係數推估）</div>
-    <div class="template-grid">
-      <div class="template-card active" onclick="selectTemplate(this,'manufacturing')">
-        <div class="template-icon"></div>
-        <div class="template-name">製造業</div>
-        <div class="template-desc">生產製程、能源、原物料、廢棄物等</div>
-      </div>
-      <div class="template-card" onclick="selectTemplate(this,'office')">
-        <div class="template-icon"></div>
-        <div class="template-name">辦公服務業</div>
-        <div class="template-desc">辦公室用電、差旅、員工通勤</div>
-      </div>
-      <div class="template-card" onclick="selectTemplate(this,'retail')">
-        <div class="template-icon"></div>
-        <div class="template-name">零售物流業</div>
-        <div class="template-desc">供應鏈運輸、倉儲、配送</div>
-      </div>
-    </div>
-
-    <div class="upload-panel" id="drop-zone" onclick="document.getElementById('file-input').click()">
-      <div class="upload-icon">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
-        </svg>
-      </div>
-      <div class="upload-label">拖曳或點擊上傳 Excel</div>
-      <div class="upload-hint">.xlsx · .xls · 最大 10MB<br><span style="color:var(--sage);cursor:pointer;text-decoration:underline;" onclick="event.stopPropagation();loadDemoData()">載入範例數據試用</span></div>
-      <input type="file" id="file-input" accept=".xlsx,.xls">
-      <div class="file-info" id="file-info"></div>
-    </div>
-    <div class="progress-bar" id="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
-    <div class="error-box" id="error-box"></div>
-
-    <div class="btn-row">
-      <button class="btn-outline" onclick="goStep(2)">← 上一步</button>
-      <button class="btn-primary" id="generate-btn" onclick="generateReport()" disabled>生成碳盤查報告 →</button>
-    </div>
+  <div class="sn" id="sn4" onclick="navTo(4)">
+    <span class="sn-num">Step 04</span>
+    <span class="sn-lbl">生成報告</span>
   </div>
+</nav>
 
-  <!-- ══ STEP 4：報告輸出 ══ -->
-  <div class="panel" id="step4-panel">
-
-    <div class="report-wrap">
-
-      <!-- 封面 -->
-      <div class="rpt-cover">
-        <div class="rpt-cover-meta">GREENHOUSE GAS INVENTORY REPORT · ISO 14064-1:2018</div>
-        <div class="rpt-cover-title">溫室氣體排放<br>盤查報告書</div>
-        <div class="rpt-cover-org" id="rpt-org">公司名稱</div>
-        <div class="rpt-cover-period" id="rpt-period">盤查期間</div>
-        <div class="rpt-cover-badges">
-          <div class="rpt-badge">ISO 14064-1:2018</div>
-          <div class="rpt-badge">GHG PROTOCOL</div>
-          <div class="rpt-badge" id="rpt-badge-verify">自行盤查</div>
-        </div>
-      </div>
-
-      <!-- 1. 組織概況 -->
-      <div class="rpt-section">
-        <div class="rpt-section-num">SECTION 1</div>
-        <div class="rpt-section-title">組織概況</div>
-        <table class="rpt-info-table" id="rpt-org-table">
-          <tr><th>組織名稱</th><td id="ri-name">—</td></tr>
-          <tr><th>統一編號</th><td id="ri-id">—</td></tr>
-          <tr><th>主要營業地址</th><td id="ri-addr">—</td></tr>
-          <tr><th>產業類別</th><td id="ri-industry">—</td></tr>
-          <tr><th>主要產品 / 服務</th><td id="ri-product">—</td></tr>
-          <tr><th>員工人數</th><td id="ri-employees">—</td></tr>
-          <tr><th>盤查負責人</th><td id="ri-contact">—</td></tr>
-        </table>
-      </div>
-
-      <!-- 2. 盤查邊界 -->
-      <div class="rpt-section">
-        <div class="rpt-section-num">SECTION 2</div>
-        <div class="rpt-section-title">盤查邊界與方法論</div>
-        <table class="rpt-info-table">
-          <tr><th>盤查年度</th><td id="ri-year">—</td></tr>
-          <tr><th>盤查期間</th><td id="ri-period">—</td></tr>
-          <tr><th>基準年</th><td id="ri-baseyear">—</td></tr>
-          <tr><th>組織邊界劃定方法</th><td id="ri-boundary-method">—</td></tr>
-          <tr><th>組織邊界範圍</th><td id="ri-org-boundary">—</td></tr>
-          <tr><th>排除項目</th><td id="ri-exclusion">—</td></tr>
-          <tr><th>溫室氣體量化方法</th><td id="ri-method">—</td></tr>
-          <tr><th>排放係數來源</th><td id="ri-ef-source">—</td></tr>
-          <tr><th>台灣電力排放係數</th><td id="ri-elec-ef">—</td></tr>
-          <tr><th>第三方查證</th><td id="ri-verification">—</td></tr>
-        </table>
-        <div class="rpt-body-text" style="margin-top:14px;">
-          <p>本報告依據 ISO 14064-1:2018《溫室氣體——第一部分：組織層級溫室氣體排放與移除量化及報告之規範與指引》，以及 GHG Protocol《企業溫室氣體盤查議定書》進行盤查作業，遵循相關性、完整性、一致性、準確性及透明度等五大原則。</p>
-          <p>溫室氣體種類涵蓋 IPCC AR6 所定義之七種溫室氣體（CO₂、CH₄、N₂O、HFCs、PFCs、SF₆、NF₃），以全球暖化潛勢 (GWP100) 換算為 CO₂ 當量 (CO₂e) 報告。</p>
-        </div>
-      </div>
-
-      <!-- 3. 排放量彙整 -->
-      <div class="rpt-section">
-        <div class="rpt-section-num">SECTION 3</div>
-        <div class="rpt-section-title">溫室氣體排放量彙整</div>
-        <div class="stats-row" style="border:1px solid #3a454a; margin-bottom:20px;">
-          <div class="stat-box">
-            <div class="stat-label">總排放量</div>
-            <div class="stat-value" id="stat-total">—</div>
-            <div class="stat-unit">公噸 CO₂e / 年</div>
-          </div>
-          <div class="stat-box">
-            <div class="stat-label">範疇一 直接排放</div>
-            <div class="stat-value" id="stat-s1" style="color:var(--amber)">—</div>
-            <div class="stat-unit">公噸 CO₂e</div>
-          </div>
-          <div class="stat-box">
-            <div class="stat-label">範疇二 能源間接</div>
-            <div class="stat-value" id="stat-s2" style="color:var(--sage)">—</div>
-            <div class="stat-unit">公噸 CO₂e</div>
-          </div>
-          <div class="stat-box">
-            <div class="stat-label">範疇三 其他間接</div>
-            <div class="stat-value" id="stat-s3" style="color:var(--fog)">—</div>
-            <div class="stat-unit">公噸 CO₂e</div>
-          </div>
-        </div>
-        <!-- Two-col: table + chart -->
-        <div style="display:grid;grid-template-columns:1fr 300px;gap:24px;">
-          <div>
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-              <div class="rpt-sub-title" style="margin-bottom:0;border:none;padding:0;">排放源明細</div>
-              <div class="scope-filter">
-                <button class="scope-btn active-all" onclick="filterScope('all',this)">全部</button>
-                <button class="scope-btn" onclick="filterScope('1',this)">範疇一</button>
-                <button class="scope-btn" onclick="filterScope('2',this)">範疇二</button>
-                <button class="scope-btn" onclick="filterScope('3',this)">範疇三</button>
-                <span class="card-badge" id="row-count">—</span>
-              </div>
-            </div>
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>排放源類別</th>
-                  <th>排放源名稱</th>
-                  <th class="num">活動數據</th>
-                  <th class="num">排放量 (tCO₂e)</th>
-                  <th>範疇</th>
-                </tr>
-              </thead>
-              <tbody id="emission-tbody"></tbody>
-              <tfoot>
-                <tr class="total-row">
-                  <td colspan="3">合計</td>
-                  <td class="num" id="tfoot-total">—</td>
-                  <td></td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-          <div>
-            <div class="rpt-sub-title">範疇佔比分析</div>
-            <div id="scope-chart"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 4. 排放強度 -->
-      <div class="rpt-section">
-        <div class="rpt-section-num">SECTION 4</div>
-        <div class="rpt-section-title">排放強度指標</div>
-        <div class="stats-row" style="border:1px solid #3a454a;">
-          <div class="stat-box">
-            <div class="stat-label">人均排放量</div>
-            <div class="stat-value" id="stat-per-emp" style="font-size:22px;">—</div>
-            <div class="stat-unit">tCO₂e / 人</div>
-          </div>
-          <div class="stat-box">
-            <div class="stat-label">範疇一佔比</div>
-            <div class="stat-value" id="stat-s1-pct" style="font-size:22px;color:var(--amber)">—</div>
-            <div class="stat-unit">% 直接排放</div>
-          </div>
-          <div class="stat-box">
-            <div class="stat-label">範疇二佔比</div>
-            <div class="stat-value" id="stat-s2-pct" style="font-size:22px;color:var(--sage)">—</div>
-            <div class="stat-unit">% 電力排放</div>
-          </div>
-          <div class="stat-box">
-            <div class="stat-label">範疇三佔比</div>
-            <div class="stat-value" id="stat-s3-pct" style="font-size:22px;color:var(--fog)">—</div>
-            <div class="stat-unit">% 間接排放</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 5. 減碳目標與建議 -->
-      <div class="rpt-section">
-        <div class="rpt-section-num">SECTION 5</div>
-        <div class="rpt-section-title">減碳目標與管理改善建議</div>
-        <div class="rpt-body-text" id="rpt-reduction-intro" style="margin-bottom:16px;"></div>
-        <ul class="suggestion-list" id="suggestions"></ul>
-      </div>
-
-      <!-- 6. 聲明 -->
-      <div class="rpt-section" style="background:var(--cream);">
-        <div class="rpt-section-num">SECTION 6</div>
-        <div class="rpt-section-title">盤查聲明</div>
-        <div class="rpt-body-text">
-          <p>本報告書係依 ISO 14064-1:2018 規範編製，本組織聲明所有盤查數據均依據相關性、完整性、一致性、準確性與透明度五大原則蒐集與計算。本報告書所揭露之溫室氣體排放量，如有重大性之估算差異，均已於各排放源備註欄位說明。</p>
-          <p>本組織承諾持續推動溫室氣體減量工作，並依環境部相關法規及 GHG Protocol 要求，每年定期完成盤查並揭露排放資訊。</p>
-          <div style="margin-top:24px;display:grid;grid-template-columns:1fr 1fr;gap:40px;">
-            <div>
-              <div style="font-size:11px;color:var(--fog);letter-spacing:1px;text-transform:uppercase;margin-bottom:24px;">盤查負責人簽署</div>
-              <div style="border-bottom:1px solid var(--ink);margin-bottom:6px;height:36px;"></div>
-              <div style="font-size:12px;color:var(--fog);" id="sign-contact">姓名 / 職稱</div>
-            </div>
-            <div>
-              <div style="font-size:11px;color:var(--fog);letter-spacing:1px;text-transform:uppercase;margin-bottom:24px;">報告書核准日期</div>
-              <div style="border-bottom:1px solid var(--ink);margin-bottom:6px;height:36px;"></div>
-              <div style="font-size:12px;color:var(--fog);" id="sign-date">年　　月　　日</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-    </div><!-- /report-wrap -->
-
-    <div class="btn-row" style="margin-top:24px;">
-      <button class="btn-secondary" onclick="window.print()"> 列印 / 匯出 PDF</button>
-      <button class="btn-outline" onclick="resetAll()">重新填寫</button>
-    </div>
-  </div><!-- /step4-panel -->
-
-</main>
-
-<footer>
-  <span>碳盤查報告系統 · GHG Inventory Tool</span>
-  <span>符合 ISO 14064-1:2018 · GHG Protocol Corporate Standard</span>
-</footer>
-
-<div class="loading-overlay" id="loading">
-  <div class="loading-spinner"></div>
-  <div class="loading-text">正在分析排放數據...</div>
+<!-- LOADING -->
+<div class="loading" id="loading">
+  <div class="spinner"></div>
+  <div class="loading-txt">正在分析排放數據...</div>
 </div>
 
-<script>
-// ══ State ══════════════════════════════════════════════════
-let uploadedData = null;
-let selectedTemplate = 'manufacturing';
-let currentStep = 1;
+<div class="wrap">
 
-// ── Emission factors (kgCO₂e per unit) ──
-const EF = {
+<!-- ══ STEP 1：組織基本資料 ══ -->
+<div class="panel active" id="panel-1">
+  <div class="ph-eye">Step 01 · 組織資訊</div>
+  <div class="ph-title">組織基本資料</div>
+  <div class="ph-desc">依 ISO 14064-1:2018 §7.2，報告書需揭露組織名稱、主要業務地址及盤查負責人資訊。<span style="color:var(--red)">*</span> 為必填欄位。</div>
+
+  <div class="fsec-label">組織概況</div>
+  <div class="fg">
+    <div class="ff">
+      <label>組織名稱 <span class="req">*</span></label>
+      <input type="text" id="f-org-name" placeholder="台灣綠能製造股份有限公司">
+    </div>
+    <div class="ff">
+      <label>統一編號</label>
+      <input type="text" id="f-org-id" placeholder="12345678">
+    </div>
+    <div class="ff fg-full">
+      <label>主要營業地址 <span class="req">*</span></label>
+      <input type="text" id="f-org-addr" placeholder="台灣台北市信義區信義路五段 7 號">
+    </div>
+    <div class="ff">
+      <label>產業類別 <span class="req">*</span></label>
+      <select id="f-org-industry">
+        <option value="">— 請選擇 —</option>
+        <option>製造業</option>
+        <option>電子資訊業</option>
+        <option>化學石化業</option>
+        <option>食品飲料業</option>
+        <option>金融保險業</option>
+        <option>零售批發業</option>
+        <option>物流運輸業</option>
+        <option>營造建設業</option>
+        <option>醫療衛生業</option>
+        <option>教育服務業</option>
+        <option>政府公部門</option>
+        <option>其他服務業</option>
+      </select>
+    </div>
+    <div class="ff">
+      <label>主要產品 / 服務</label>
+      <input type="text" id="f-org-product" placeholder="電子零組件製造">
+    </div>
+    <div class="ff">
+      <label>員工人數</label>
+      <input type="number" id="f-org-employees" placeholder="850" min="1">
+    </div>
+  </div>
+
+  <div class="fsec-label">盤查負責人</div>
+  <div class="fg">
+    <div class="ff">
+      <label>負責人姓名 <span class="req">*</span></label>
+      <input type="text" id="f-contact-name" placeholder="王大明">
+    </div>
+    <div class="ff">
+      <label>職稱</label>
+      <input type="text" id="f-contact-title" placeholder="永續發展部經理">
+    </div>
+    <div class="ff">
+      <label>聯絡電話</label>
+      <input type="tel" id="f-contact-phone" placeholder="02-1234-5678">
+    </div>
+    <div class="ff">
+      <label>電子信箱</label>
+      <input type="email" id="f-contact-email" placeholder="ghg@company.com.tw">
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn-primary" onclick="step1Next()">下一步：盤查邊界設定 →</button>
+  </div>
+</div>
+
+<!-- ══ STEP 2：盤查邊界設定 ══ -->
+<div class="panel" id="panel-2">
+  <div class="ph-eye">Step 02 · 盤查邊界</div>
+  <div class="ph-title">盤查邊界設定</div>
+  <div class="ph-desc">依 ISO 14064-1:2018 §7.3，界定組織邊界、時間邊界、量化方法及第三方查證狀態。</div>
+
+  <div class="fsec-label">時間邊界</div>
+  <div class="fg">
+    <div class="ff">
+      <label>盤查年度 <span class="req">*</span></label>
+      <input type="number" id="f-year" placeholder="2024" min="2000" max="2099">
+    </div>
+    <div class="ff">
+      <label>基準年 <span class="req">*</span></label>
+      <input type="number" id="f-base-year" placeholder="2021" min="2000" max="2099">
+      <span class="fhint">首次盤查請填寫本年度</span>
+    </div>
+    <div class="ff fg-full">
+      <label>盤查期間</label>
+      <input type="text" id="f-period" placeholder="2024/01/01 ~ 2024/12/31">
+    </div>
+  </div>
+
+  <div class="fsec-label">組織邊界</div>
+  <div class="fg">
+    <div class="ff">
+      <label>邊界劃定方法 <span class="req">*</span></label>
+      <select id="f-boundary-method">
+        <option value="">— 請選擇 —</option>
+        <option value="operational">營運控制權法</option>
+        <option value="financial">財務控制權法</option>
+        <option value="equity">股權比例法</option>
+      </select>
+    </div>
+    <div class="ff">
+      <label>量化方法</label>
+      <select id="f-method-s1">
+        <option>排放係數法</option>
+        <option>質量平衡法</option>
+        <option>直接量測法</option>
+      </select>
+    </div>
+    <div class="ff fg-full">
+      <label>組織邊界說明 <span class="req">*</span></label>
+      <textarea id="f-org-boundary" placeholder="例：本次盤查邊界涵蓋台北總部辦公室、桃園廠區 A 及新竹研發中心，共計 3 個場址。"></textarea>
+    </div>
+    <div class="ff fg-full">
+      <label>排除項目說明</label>
+      <textarea id="f-exclusion" placeholder="如無排除項目，請填「無」"></textarea>
+    </div>
+  </div>
+
+  <div class="fsec-label">排放係數</div>
+  <div class="fg">
+    <div class="ff">
+      <label>排放係數來源</label>
+      <select id="f-ef-source">
+        <option>環境部公告係數</option>
+        <option>IPCC AR6</option>
+        <option>GHG Protocol</option>
+        <option>IEA</option>
+        <option>製造商實測值</option>
+      </select>
+    </div>
+    <div class="ff">
+      <label>電力排放係數（kgCO₂e/kWh）</label>
+      <input type="number" id="f-elec-ef" value="0.494" step="0.001" min="0">
+      <span class="fhint">台電 2024 年公告值：0.494</span>
+    </div>
+  </div>
+
+  <div class="fsec-label">第三方查證</div>
+  <div class="fg">
+    <div class="ff">
+      <label>是否委託第三方查證</label>
+      <select id="f-verification" onchange="toggleVerify(this.value)">
+        <option value="no">否，自行盤查</option>
+        <option value="planned">預計委託</option>
+        <option value="yes">是，已查證</option>
+      </select>
+    </div>
+    <div class="ff" id="vg1" style="display:none">
+      <label>查證機構名稱</label>
+      <input type="text" id="f-verifier" placeholder="BSI、SGS、BV">
+    </div>
+    <div class="ff" id="vg2" style="display:none">
+      <label>查證聲明書編號</label>
+      <input type="text" id="f-verify-no" placeholder="TW-GHG-2024-001">
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn-primary" onclick="step2Next()">下一步：上傳排放數據 →</button>
+    <button class="btn-ghost" onclick="goTo(1)">← 上一步</button>
+  </div>
+</div>
+
+<!-- ══ STEP 3：上傳排放數據 ══ -->
+<div class="panel" id="panel-3">
+  <div class="ph-eye">Step 03 · 排放數據</div>
+  <div class="ph-title">上傳排放數據</div>
+  <div class="ph-desc">上傳 Excel 檔案（.xlsx / .xls），需包含排放源、數量、單位欄位。系統自動辨識範疇並計算 CO₂e 當量。</div>
+
+  <div class="fsec-label">選擇模板類型</div>
+  <div class="tpl-grid">
+    <div class="tpl-card active" onclick="selTpl(this)">
+      <div class="tpl-name">製造業</div>
+      <div class="tpl-desc">燃料燃燒、電力、製程排放</div>
+    </div>
+    <div class="tpl-card" onclick="selTpl(this)">
+      <div class="tpl-name">辦公室 / 服務業</div>
+      <div class="tpl-desc">電力、差旅、通勤為主</div>
+    </div>
+    <div class="tpl-card" onclick="selTpl(this)">
+      <div class="tpl-name">物流 / 運輸業</div>
+      <div class="tpl-desc">車輛燃油、物流配送為主</div>
+    </div>
+  </div>
+
+  <div class="fsec-label">上傳 Excel 檔案</div>
+  <div class="upzone" id="upzone" onclick="document.getElementById('finput').click()">
+    <span class="upzone-icon">📂</span>
+    <div class="upzone-title">拖曳或點擊上傳 Excel 檔案</div>
+    <div class="upzone-sub">.xlsx / .xls · 最大 10 MB</div>
+    <span class="upzone-demo-link" onclick="event.stopPropagation(); loadDemo()">使用範例數據（14 筆排放源）</span>
+  </div>
+  <input type="file" id="finput" accept=".xlsx,.xls">
+  <div class="file-tag" id="file-tag"></div>
+  <div class="progress" id="progress"><div class="progress-fill" id="pfill"></div></div>
+  <div class="errbox" id="errbox"></div>
+
+  <!-- 數據預覽 -->
+  <div id="data-preview" style="display:none;margin-top:20px">
+    <div class="fsec-label" style="margin-top:0;border-top:none;padding-top:0">
+      數據預覽
+      <span id="preview-count" style="color:var(--ac);font-size:10px;margin-left:10px;font-family:var(--mono)"></span>
+    </div>
+    <div style="background:var(--bg2);border:1px solid var(--line2);padding:9px 14px;margin-bottom:8px;font-family:var(--mono);font-size:10px;color:var(--t2);display:flex;flex-wrap:wrap;gap:16px">
+      <span><span style="color:var(--t3)">名稱欄</span> <span id="col-name-lbl" style="color:var(--ac)">—</span></span>
+      <span><span style="color:var(--t3)">數量欄</span> <span id="col-val-lbl" style="color:var(--ac)">—</span></span>
+      <span><span style="color:var(--t3)">單位欄</span> <span id="col-unit-lbl" style="color:var(--ac)">—</span></span>
+      <span><span style="color:var(--t3)">EF欄</span> <span id="col-ef-lbl" style="color:var(--t3)">無（使用內建係數）</span></span>
+    </div>
+    <div style="overflow-x:auto;max-height:240px;overflow-y:auto;border:1px solid var(--line2)">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:500px">
+        <thead>
+          <tr style="background:var(--bg3)">
+            <th style="padding:7px 11px;text-align:left;font-family:var(--mono);font-size:9px;letter-spacing:1.5px;color:var(--t3);border-bottom:1px solid var(--line2);white-space:nowrap">#</th>
+            <th style="padding:7px 11px;text-align:left;font-family:var(--mono);font-size:9px;letter-spacing:1.5px;color:var(--t3);border-bottom:1px solid var(--line2)">排放源名稱</th>
+            <th style="padding:7px 11px;text-align:right;font-family:var(--mono);font-size:9px;letter-spacing:1.5px;color:var(--t3);border-bottom:1px solid var(--line2)">數量</th>
+            <th style="padding:7px 11px;text-align:left;font-family:var(--mono);font-size:9px;letter-spacing:1.5px;color:var(--t3);border-bottom:1px solid var(--line2)">單位</th>
+            <th style="padding:7px 11px;text-align:left;font-family:var(--mono);font-size:9px;letter-spacing:1.5px;color:var(--t3);border-bottom:1px solid var(--line2)">自動判斷範疇</th>
+          </tr>
+        </thead>
+        <tbody id="preview-tbody"></tbody>
+      </table>
+    </div>
+    <div id="preview-warn" style="display:none;margin-top:8px;padding:8px 12px;background:rgba(212,168,83,.08);border-left:2px solid var(--gold);font-family:var(--mono);font-size:10px;color:var(--gold)"></div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn-primary" id="genbtn" onclick="doGenerate()" disabled>生成碳盤查報告 →</button>
+    <button class="btn-ghost" onclick="goTo(2)">← 上一步</button>
+  </div>
+</div>
+
+<!-- ══ STEP 4：報告輸出 ══ -->
+<div class="panel" id="panel-4">
+  <div class="rpt-bar">
+    <span class="rpt-bar-label">ISO 14064-1:2018 · 溫室氣體盤查報告書</span>
+    <div class="rpt-bar-btns">
+      <button class="btn-rpt" onclick="window.print()">🖨 列印 / PDF</button>
+      <button class="btn-rpt" onclick="goTo(3)">← 返回修改</button>
+    </div>
+  </div>
+
+  <div class="rpt" id="rpt">
+
+    <!-- 封面 -->
+    <div class="r-cov">
+      <div class="r-cov-label">Greenhouse Gas Inventory Report · ISO 14064-1:2018</div>
+      <div class="r-cov-title">溫室氣體排放<br>盤查報告書</div>
+      <div class="r-cov-org" id="rc-org"></div>
+      <div class="r-cov-period" id="rc-period"></div>
+      <div class="r-cov-badges">
+        <span class="r-badge">ISO 14064-1:2018</span>
+        <span class="r-badge">GHG Protocol</span>
+        <span class="r-badge" id="rc-verify"></span>
+      </div>
+    </div>
+
+    <!-- SEC 1：組織概況 -->
+    <div class="r-sec">
+      <div class="r-sec-num">SECTION 01</div>
+      <div class="r-sec-title">組織概況</div>
+      <div class="ed-hint">✎ 以下欄位可直接點擊修改內容</div>
+      <div class="ed-warn" id="ed-warn">⚠ 標示 * 的欄位為必填，不可留空</div>
+      <table class="r-tbl">
+        <tr>
+          <th>組織名稱 *</th>
+          <td class="r-ed" id="ri-name" contenteditable="true" data-ph="請輸入組織名稱"></td>
+        </tr>
+        <tr>
+          <th>統一編號</th>
+          <td class="r-ed" id="ri-id" contenteditable="true" data-ph="請輸入統一編號"></td>
+        </tr>
+        <tr>
+          <th>主要營業地址 *</th>
+          <td class="r-ed" id="ri-addr" contenteditable="true" data-ph="請輸入地址"></td>
+        </tr>
+        <tr>
+          <th>產業類別 *</th>
+          <td class="r-ed" id="ri-industry" contenteditable="true" data-ph="請輸入產業類別"></td>
+        </tr>
+        <tr>
+          <th>主要產品 / 服務</th>
+          <td class="r-ed" id="ri-product" contenteditable="true" data-ph="請輸入產品或服務"></td>
+        </tr>
+        <tr>
+          <th>員工人數</th>
+          <td class="r-ed" id="ri-employees" contenteditable="true" data-ph="請輸入員工人數"></td>
+        </tr>
+        <tr>
+          <th>盤查負責人 *</th>
+          <td class="r-ed" id="ri-contact" contenteditable="true" data-ph="請輸入負責人姓名、職稱、電話、信箱"></td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- SEC 2：盤查邊界與方法論 -->
+    <div class="r-sec">
+      <div class="r-sec-num">SECTION 02</div>
+      <div class="r-sec-title">盤查邊界與方法論</div>
+      <table class="r-tbl">
+        <tr><th>盤查年度</th>          <td id="ri-year"></td></tr>
+        <tr><th>基準年</th>            <td id="ri-baseyear"></td></tr>
+        <tr><th>盤查期間</th>          <td id="ri-period"></td></tr>
+        <tr><th>組織邊界劃定方法</th>  <td id="ri-bmethod"></td></tr>
+        <tr><th>組織邊界範圍</th>      <td id="ri-boundary"></td></tr>
+        <tr><th>排除項目</th>          <td id="ri-exclusion"></td></tr>
+        <tr><th>溫室氣體量化方法</th>  <td id="ri-method"></td></tr>
+        <tr><th>排放係數來源</th>      <td id="ri-efsource"></td></tr>
+        <tr><th>電力排放係數</th>      <td id="ri-elecef"></td></tr>
+        <tr><th>第三方查證狀態</th>    <td id="ri-verifytxt"></td></tr>
+      </table>
+      <div class="r-body">
+        <p>本報告依據 ISO 14064-1:2018 及 GHG Protocol《企業溫室氣體盤查議定書》進行盤查，遵循相關性、完整性、一致性、準確性及透明度五大原則。溫室氣體種類涵蓋 CO₂、CH₄、N₂O、HFCs、PFCs、SF₆、NF₃，以 GWP100（AR6）換算為 CO₂e 報告。</p>
+      </div>
+    </div>
+
+    <!-- SEC 3：溫室氣體排放量彙整 -->
+    <div class="r-sec">
+      <div class="r-sec-num">SECTION 03</div>
+      <div class="r-sec-title">溫室氣體排放量彙整</div>
+
+      <div class="r-stats">
+        <div class="r-stat">
+          <div class="r-stat-label">總排放量</div>
+          <div class="r-stat-val" id="st-total" style="color:#1a3328">—</div>
+          <div class="r-stat-unit">公噸 CO₂e / 年</div>
+        </div>
+        <div class="r-stat">
+          <div class="r-stat-label">範疇一 直接排放</div>
+          <div class="r-stat-val" id="st-s1" style="color:#a04614">—</div>
+          <div class="r-stat-unit">公噸 CO₂e</div>
+        </div>
+        <div class="r-stat">
+          <div class="r-stat-label">範疇二 能源間接</div>
+          <div class="r-stat-val" id="st-s2" style="color:#1a5a2c">—</div>
+          <div class="r-stat-unit">公噸 CO₂e</div>
+        </div>
+        <div class="r-stat">
+          <div class="r-stat-label">範疇三 其他間接</div>
+          <div class="r-stat-val" id="st-s3" style="color:#1e3c6e">—</div>
+          <div class="r-stat-unit">公噸 CO₂e</div>
+        </div>
+      </div>
+
+      <div class="r-two">
+        <div>
+          <div class="r-sub">排放源明細</div>
+          <div class="r-filter">
+            <button class="r-fbtn f-all" onclick="filterS('all',this)">全部</button>
+            <button class="r-fbtn" onclick="filterS('1',this)">範疇一</button>
+            <button class="r-fbtn" onclick="filterS('2',this)">範疇二</button>
+            <button class="r-fbtn" onclick="filterS('3',this)">範疇三</button>
+            <span class="r-count" id="r-count"></span>
+          </div>
+          <table class="r-etbl">
+            <thead>
+              <tr>
+                <th>類別</th>
+                <th>排放源</th>
+                <th class="rn">活動數據</th>
+                <th class="rn">排放量（tCO₂e）</th>
+                <th>範疇</th>
+              </tr>
+            </thead>
+            <tbody id="em-tbody"></tbody>
+            <tfoot>
+              <tr>
+                <td colspan="3">合計</td>
+                <td class="rn" id="ft-total"></td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <div>
+          <div class="r-sub">範疇佔比分析</div>
+          <div id="scope-chart"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SEC 4：排放強度指標 -->
+    <div class="r-sec">
+      <div class="r-sec-num">SECTION 04</div>
+      <div class="r-sec-title">排放強度指標</div>
+      <div class="r-inten">
+        <div class="r-ibox">
+          <div class="r-stat-label">人均排放量</div>
+          <div class="r-stat-val" id="st-peremp" style="font-size:22px;color:#1a3328">—</div>
+          <div class="r-stat-unit">tCO₂e / 人</div>
+        </div>
+        <div class="r-ibox">
+          <div class="r-stat-label">範疇一佔比</div>
+          <div class="r-stat-val" id="st-s1pct" style="font-size:22px;color:#a04614">—</div>
+          <div class="r-stat-unit">% 直接排放</div>
+        </div>
+        <div class="r-ibox">
+          <div class="r-stat-label">範疇二佔比</div>
+          <div class="r-stat-val" id="st-s2pct" style="font-size:22px;color:#1a5a2c">—</div>
+          <div class="r-stat-unit">% 電力排放</div>
+        </div>
+        <div class="r-ibox">
+          <div class="r-stat-label">範疇三佔比</div>
+          <div class="r-stat-val" id="st-s3pct" style="font-size:22px;color:#1e3c6e">—</div>
+          <div class="r-stat-unit">% 間接排放</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SEC 5：管理改善建議 -->
+    <div class="r-sec">
+      <div class="r-sec-num">SECTION 05</div>
+      <div class="r-sec-title">管理改善建議</div>
+      <div class="r-body" id="rpt-intro"></div>
+      <ul class="r-sugs" id="sugs"></ul>
+    </div>
+
+    <!-- SEC 6：盤查聲明 -->
+    <div class="r-sec">
+      <div class="r-sec-num">SECTION 06</div>
+      <div class="r-sec-title">盤查聲明</div>
+      <div class="r-body">
+        <p>本組織聲明，本報告書所載之溫室氣體排放數據，係依據 ISO 14064-1:2018 及 GHG Protocol 之規定，以合理且一致之方式進行量化與報告，並對報告資料之正確性負責。本報告書所有數據均已通過內部審查程序。</p>
+      </div>
+      <div class="r-sign">
+        <div class="r-signblk">
+          <div class="r-signline"></div>
+          <div class="r-signlbl">最高管理者（簽章）</div>
+          <div class="r-signnm">姓名 / 職稱</div>
+        </div>
+        <div class="r-signblk">
+          <div class="r-signline"></div>
+          <div class="r-signlbl">盤查負責人（簽章）</div>
+          <div class="r-signnm" id="sign-contact"></div>
+        </div>
+        <div class="r-signblk">
+          <div class="r-signline"></div>
+          <div class="r-signlbl">報告日期</div>
+          <div class="r-signnm" id="sign-date"></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /rpt -->
+</div><!-- /panel-4 -->
+
+</div><!-- /wrap -->
+
+<script>
+// ── State ──────────────────────────────────────────────────
+var uploadedData = null;
+var curStep = 1;
+
+// ── Emission factors ───────────────────────────────────────
+var EF = {
   electricity: 0.494, diesel: 2.68, gasoline: 2.31,
-  naturalGas: 2.04, lpg: 3.0,
-  flight_domestic: 0.255, flight_international: 0.195,
-  train: 0.041, truck: 0.146, waste: 0.467,
+  naturalGas: 2.04,  lpg: 3.0,
+  flight_intl: 0.195, flight_dom: 0.255,
+  train: 0.041, truck: 0.146, waste: 0.467
 };
 
-const scopeMap = [
-  { scope:1, keywords:['天然氣','柴油','汽油','液化石油','燃料','鍋爐','發電機','車輛','製程燃燒','冷媒','lpg','lng','製冷劑'] },
-  { scope:2, keywords:['電力','用電','外購電','電費','蒸汽','熱能'] },
-  { scope:3, keywords:['差旅','航班','飛機','火車','高鐵','廢棄物','廢水','外購','原料','供應商','員工通勤','商務旅行','貨運','物流','配送','租賃'] },
+// ── Scope detection ────────────────────────────────────────
+var SCOPE_KW = [
+  { s: 1, kw: ['天然氣','柴油','汽油','液化石油','燃料','鍋爐','發電機','車輛','製程','冷媒',
+               'natural gas','diesel','gasoline','petrol','fuel','boiler','refrigerant','lpg'] },
+  { s: 2, kw: ['電力','用電','外購電','電費','蒸汽','熱能',
+               'electricity','electric','power','steam','heat'] },
+  { s: 3, kw: ['差旅','航班','飛機','火車','廢棄物','廢水','原料','供應商','員工通勤','貨運','物流','配送',
+               'flight','travel','train','waste','freight','logistics','commute','supply'] }
 ];
-
-function detectScope(text) {
-  const t = String(text).toLowerCase();
-  for (const s of scopeMap) {
-    if (s.keywords.some(k => t.includes(k))) return s.scope;
-  }
+function detectScope(name) {
+  var t = name.toLowerCase();
+  for (var i = 0; i < SCOPE_KW.length; i++)
+    for (var j = 0; j < SCOPE_KW[i].kw.length; j++)
+      if (t.indexOf(SCOPE_KW[i].kw[j]) >= 0) return SCOPE_KW[i].s;
   return 3;
 }
 
-// ══ Step navigation ════════════════════════════════════════
-function goStep(n) {
-  document.querySelectorAll('.panel').forEach((p,i) => p.classList.toggle('active', i === n-1));
-  document.querySelectorAll('.step-item').forEach((s,i) => {
-    s.classList.remove('active','done');
-    if (i+1 === n) s.classList.add('active');
-    else if (i+1 < n) s.classList.add('done');
-  });
-  currentStep = n;
-  window.scrollTo({top:0, behavior:'smooth'});
+// ── Navigation ─────────────────────────────────────────────
+function goTo(n) {
+  for (var i = 1; i <= 4; i++) {
+    var p = document.getElementById('panel-' + i);
+    var s = document.getElementById('sn' + i);
+    if (p) p.className = 'panel' + (i === n ? ' active' : '');
+    if (s) {
+      s.className = 'sn' + (i === n ? ' active' : i < n ? ' done' : '');
+    }
+  }
+  curStep = n;
+  window.scrollTo(0, 0);
+}
+function navTo(n) {
+  if (n <= curStep) {
+    if (curStep === 4 && n < 4) {
+      if (!confirm('離開報告頁面將不會保存報告內容，確定要返回修改嗎？')) return;
+    }
+    goTo(n);
+  }
 }
 
-// ══ File Upload ════════════════════════════════════════════
-const dropZone = document.getElementById('drop-zone');
-const fileInput = document.getElementById('file-input');
+// ── Form helpers ───────────────────────────────────────────
+function gv(id) {
+  var el = document.getElementById(id);
+  return el ? (el.value || '') : '';
+}
+function setErr(id, msg) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.classList.add('finput-err');
+  var d = el.parentNode.querySelector('.ferr');
+  if (!d) {
+    d = document.createElement('div');
+    d.className = 'ferr';
+    el.parentNode.appendChild(d);
+  }
+  d.textContent = '⚠ ' + msg;
+}
+function clearErrs() {
+  document.querySelectorAll('.ferr').forEach(function(e) { e.remove(); });
+  document.querySelectorAll('.finput-err').forEach(function(e) { e.classList.remove('finput-err'); });
+}
 
-dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-dropZone.addEventListener('drop', e => {
-  e.preventDefault(); dropZone.classList.remove('drag-over');
-  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
-});
-fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+// ── Toggle verify fields ───────────────────────────────────
+function toggleVerify(v) {
+  document.getElementById('vg1').style.display = v === 'yes' ? '' : 'none';
+  document.getElementById('vg2').style.display = v === 'yes' ? '' : 'none';
+}
+
+// ── Template select ────────────────────────────────────────
+function selTpl(el) {
+  document.querySelectorAll('.tpl-card').forEach(function(c) { c.classList.remove('active'); });
+  el.classList.add('active');
+}
+
+// ── Step validation ────────────────────────────────────────
+function step1Next() {
+  clearErrs();
+  var ok = true;
+  if (!gv('f-org-name').trim())     { setErr('f-org-name',    '組織名稱為必填'); ok = false; }
+  if (!gv('f-org-addr').trim())     { setErr('f-org-addr',    '主要營業地址為必填'); ok = false; }
+  if (!gv('f-contact-name').trim()) { setErr('f-contact-name','負責人姓名為必填'); ok = false; }
+  if (!gv('f-org-industry'))        { setErr('f-org-industry','請選擇產業類別'); ok = false; }
+  if (ok) goTo(2);
+}
+function step2Next() {
+  clearErrs();
+  var ok = true;
+  if (!gv('f-year').trim())         { setErr('f-year',           '盤查年度為必填'); ok = false; }
+  if (!gv('f-base-year').trim())    { setErr('f-base-year',      '基準年為必填'); ok = false; }
+  if (!gv('f-boundary-method'))     { setErr('f-boundary-method','請選擇邊界劃定方法'); ok = false; }
+  if (!gv('f-org-boundary').trim()) { setErr('f-org-boundary',   '組織邊界說明為必填'); ok = false; }
+  if (ok) goTo(3);
+}
+
+// ── File upload ────────────────────────────────────────────
+(function initUpload() {
+  var dz = document.getElementById('upzone');
+  var fi = document.getElementById('finput');
+  dz.addEventListener('dragover', function(e) {
+    e.preventDefault(); dz.classList.add('drag');
+  });
+  dz.addEventListener('dragleave', function() {
+    dz.classList.remove('drag');
+  });
+  dz.addEventListener('drop', function(e) {
+    e.preventDefault(); dz.classList.remove('drag');
+    if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+  });
+  fi.addEventListener('change', function(e) {
+    if (e.target.files[0]) handleFile(e.target.files[0]);
+  });
+})();
 
 function handleFile(file) {
-  hideError();
-  if (!file.name.match(/\.(xlsx|xls)$/i)) { showError('請上傳 .xlsx 或 .xls 格式的 Excel 檔案'); return; }
-  const fi = document.getElementById('file-info');
-  fi.textContent = ` ${file.name}  ·  ${(file.size/1024).toFixed(1)} KB`;
-  fi.style.display = 'block';
+  var eb = document.getElementById('errbox');
+  eb.style.display = 'none';
+  if (!file.name.match(/\.(xlsx|xls)$/i)) {
+    eb.textContent = '請上傳 .xlsx 或 .xls 格式的 Excel 檔案';
+    eb.style.display = 'block';
+    return;
+  }
+  var tag  = document.getElementById('file-tag');
+  var bar  = document.getElementById('progress');
+  var fill = document.getElementById('pfill');
+  tag.textContent = '📄 ' + file.name + '  ·  ' + (file.size / 1024).toFixed(1) + ' KB';
+  tag.style.display = 'block';
+  bar.style.display = 'block';
+  fill.style.width = '0';
 
-  const progress = document.getElementById('progress-bar');
-  const fill = document.getElementById('progress-fill');
-  progress.style.display = 'block'; fill.style.width = '0%';
-
-  const reader = new FileReader();
-  reader.onload = e => {
+  var reader = new FileReader();
+  reader.onload = function(e) {
     fill.style.width = '60%';
     try {
-      const wb = XLSX.read(e.target.result, { type:'binary' });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      uploadedData = XLSX.utils.sheet_to_json(ws, { defval:'' });
+      var wb = XLSX.read(e.target.result, { type: 'binary' });
+      var ws = wb.Sheets[wb.SheetNames[0]];
+      uploadedData = XLSX.utils.sheet_to_json(ws, { defval: '' });
       fill.style.width = '100%';
-      setTimeout(() => {
-        progress.style.display = 'none';
-        document.getElementById('generate-btn').disabled = false;
+      setTimeout(function() {
+        bar.style.display = 'none';
+        showPreview(uploadedData);
+        document.getElementById('genbtn').disabled = false;
       }, 400);
     } catch(err) {
-      showError('無法解析 Excel 檔案，請確認格式正確');
-      progress.style.display = 'none';
+      eb.textContent = '無法解析 Excel：' + err.message;
+      eb.style.display = 'block';
+      bar.style.display = 'none';
     }
   };
   reader.readAsBinaryString(file);
 }
 
-function loadDemoData() {
+function loadDemo() {
   uploadedData = [
-    {排放源:'天然氣鍋爐燃燒',數量:48500,單位:'m³'},{排放源:'柴油發電機燃燒',數量:18200,單位:'公升'},
-    {排放源:'公務車輛汽油',數量:24600,單位:'公升'},{排放源:'冷媒逸散 R-410A',數量:120,單位:'kg'},
-    {排放源:'工廠外購電力',數量:1850000,單位:'kWh'},{排放源:'辦公室外購電力',數量:320000,單位:'kWh'},
-    {排放源:'外購蒸汽',數量:2800,單位:'GJ'},{排放源:'員工國際差旅航班',數量:1450000,單位:'乘客公里'},
-    {排放源:'員工國內差旅航班',數量:280000,單位:'乘客公里'},{排放源:'員工通勤',數量:4200000,單位:'乘客公里'},
-    {排放源:'原料採購貨運',數量:860000,單位:'噸公里'},{排放源:'成品配送物流',數量:620000,單位:'噸公里'},
-    {排放源:'一般廢棄物處理',數量:68000,單位:'kg'},{排放源:'廢水處理',數量:35000,單位:'噸'},
+    { 排放源: '天然氣鍋爐燃燒',   數量: 48500,   單位: 'm³' },
+    { 排放源: '柴油發電機燃燒',   數量: 18200,   單位: '公升' },
+    { 排放源: '公務車輛汽油',     數量: 24600,   單位: '公升' },
+    { 排放源: '冷媒逸散 R-410A', 數量: 120,     單位: 'kg' },
+    { 排放源: '工廠外購電力',     數量: 1850000, 單位: 'kWh' },
+    { 排放源: '辦公室外購電力',   數量: 320000,  單位: 'kWh' },
+    { 排放源: '外購蒸汽',         數量: 2800,    單位: 'GJ' },
+    { 排放源: '員工國際差旅航班', 數量: 1450000, 單位: '乘客公里' },
+    { 排放源: '員工國內差旅航班', 數量: 280000,  單位: '乘客公里' },
+    { 排放源: '員工通勤',         數量: 4200000, 單位: '乘客公里' },
+    { 排放源: '原料採購貨運',     數量: 860000,  單位: '噸公里' },
+    { 排放源: '成品配送物流',     數量: 620000,  單位: '噸公里' },
+    { 排放源: '一般廢棄物處理',   數量: 68000,   單位: 'kg' },
+    { 排放源: '廢水處理',         數量: 35000,   單位: '噸' }
   ];
-  const fi = document.getElementById('file-info');
-  fi.textContent = ' 範例數據已載入（14 筆排放源）';
-  fi.style.display = 'block';
-  document.getElementById('generate-btn').disabled = false;
-  hideError();
+  var tag = document.getElementById('file-tag');
+  tag.textContent = '✓ 範例數據已載入（14 筆排放源）';
+  tag.style.display = 'block';
+  document.getElementById('genbtn').disabled = false;
+  document.getElementById('errbox').style.display = 'none';
+  showPreview(uploadedData);
 }
 
-function selectTemplate(el, type) {
-  document.querySelectorAll('.template-card').forEach(c => c.classList.remove('active'));
-  el.classList.add('active');
-  selectedTemplate = type;
-}
+// ── Data preview ───────────────────────────────────────────
+function showPreview(rows) {
+  if (!rows || !rows.length) return;
 
-// ══ Generate Report ════════════════════════════════════════
-function generateReport() {
-  if (!uploadedData) { showError('請先上傳 Excel 檔案'); return; }
-  showLoading();
-  setTimeout(() => {
-    try {
-      const efOverride = parseFloat(document.getElementById('f-elec-ef').value) || 0.494;
-      const report = analyzeData(uploadedData, efOverride);
-      populateReport(report);
-      hideLoading();
-      goStep(4);
-    } catch(err) {
-      hideLoading();
-      showError('數據分析失敗：' + err.message);
+  // Find first valid row
+  var firstIdx = 0;
+  for (var i = 0; i < rows.length; i++) {
+    var ks = Object.keys(rows[i] || {}).filter(function(k){ return k.trim() !== ''; });
+    if (ks.length >= 2) { firstIdx = i; break; }
+  }
+  var keys = Object.keys(rows[firstIdx] || {}).filter(function(k){ return k.trim() !== ''; });
+
+  var nc  = resolveNameCol(keys);
+  var vc  = resolveValCol(keys);
+  var uc  = resolveUnitCol(keys);
+  var ec  = resolveEfCol(keys);
+
+  // Show column labels
+  document.getElementById('col-name-lbl').textContent = nc || '—';
+  document.getElementById('col-val-lbl').textContent  = vc || '—';
+  document.getElementById('col-unit-lbl').textContent = uc || '—';
+  var efEl = document.getElementById('col-ef-lbl');
+  if (ec) {
+    efEl.textContent = ec;
+    efEl.style.color = 'var(--ac)';
+  } else {
+    efEl.textContent = '無（使用內建係數）';
+    efEl.style.color = 'var(--t3)';
+  }
+
+  // Build preview rows
+  var SNAMES = ['', '範疇一', '範疇二', '範疇三'];
+  var SCOLORS= ['', '#a04614', '#1a5a2c', '#1e3c6e'];
+  var validRows = [];
+  var unknownCount = 0;
+
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i];
+    var name = String(row[nc] || '').trim();
+    if (!name || name === nc) continue;
+    var rawStr = String(row[vc] || '').replace(/,/g,'').trim();
+    var raw = parseFloat(rawStr);
+    if (isNaN(raw) || raw <= 0) continue;
+    var unit = uc ? (String(row[uc] || '').trim() || '—') : '—';
+
+    // scope detection for preview
+    var fuelCol = findCol(keys, ['燃料','能源種類','fuel','energy']);
+    var scopeName = name;
+    if (fuelCol && fuelCol !== nc) {
+      var fv = String(row[fuelCol] || '').trim();
+      if (fv) scopeName = fv + ' ' + name;
     }
-  }, 1000);
+    var scope = detectScope(scopeName);
+    var ef = lookupEF(scopeName, 0.494);
+    if (ef === null) unknownCount++;
+    validRows.push({ name: name, raw: raw, unit: unit, scope: scope, hasEF: ef !== null });
+  }
+
+  // Render table
+  var html = '';
+  var MAX_PREVIEW = 10;
+  for (var i = 0; i < Math.min(validRows.length, MAX_PREVIEW); i++) {
+    var r = validRows[i];
+    var scopeColor = SCOLORS[r.scope] || '#6a8a75';
+    html += '<tr style="border-bottom:1px solid #1c2620">';
+    html += '<td style="padding:7px 11px;font-family:var(--mono);font-size:10px;color:#4a6058">' + (i+1) + '</td>';
+    html += '<td style="padding:7px 11px;color:#e8f0eb;font-size:12px">' + r.name + '</td>';
+    html += '<td style="padding:7px 11px;text-align:right;font-family:var(--mono);font-size:11px;color:#e8f0eb">' + r.raw.toLocaleString() + '</td>';
+    html += '<td style="padding:7px 11px;font-family:var(--mono);font-size:11px;color:#8fa899">' + r.unit + '</td>';
+    html += '<td style="padding:7px 11px;font-family:var(--mono);font-size:10px;font-weight:700;color:' + scopeColor + '">' +
+      SNAMES[r.scope] +
+      (r.hasEF ? '' : ' <span style="color:#d4a853;font-weight:400">（無匹配EF）</span>') +
+      '</td>';
+    html += '</tr>';
+  }
+  if (validRows.length > MAX_PREVIEW) {
+    html += '<tr><td colspan="5" style="padding:8px 11px;font-family:var(--mono);font-size:10px;color:#4a6058;text-align:center">…另有 ' + (validRows.length - MAX_PREVIEW) + ' 筆（共 ' + validRows.length + ' 筆）</td></tr>';
+  }
+  document.getElementById('preview-tbody').innerHTML = html;
+
+  // Count label
+  document.getElementById('preview-count').textContent = validRows.length + ' 筆有效數據';
+
+  // Warning
+  var warn = document.getElementById('preview-warn');
+  var msgs = [];
+  if (unknownCount > 0)
+    msgs.push('⚠ ' + unknownCount + ' 筆排放源無法匹配內建排放係數，排放量將計為 0。建議在 Excel 中新增「排放係數」欄手動填入。');
+  if (!nc || !vc)
+    msgs.push('⚠ 欄位識別不完整，請確認 Excel 含「排放源」與「數量」欄位名稱。');
+  if (msgs.length) {
+    warn.innerHTML = msgs.join('<br>');
+    warn.style.display = 'block';
+  } else {
+    warn.style.display = 'none';
+  }
+
+  document.getElementById('data-preview').style.display = 'block';
+}
+
+
+// ── Data analysis ──────────────────────────────────────────
+
+// 欄位識別：優先精確匹配，再做包含匹配
+// 方向修正為「candidate 包含在 key 中」，避免「活動數據量」誤匹配「活動」
+function findCol(keys, candidates) {
+  // P1: key 完全等於 candidate（不分大小寫）
+  for (var a = 0; a < candidates.length; a++) {
+    var cand = candidates[a].toLowerCase();
+    for (var k = 0; k < keys.length; k++)
+      if (keys[k].toLowerCase() === cand) return keys[k];
+  }
+  // P2: key 包含 candidate（candidate 長度 >= 3 才模糊）
+  for (var a = 0; a < candidates.length; a++) {
+    var cand = candidates[a].toLowerCase();
+    if (cand.length < 3) continue;
+    for (var k = 0; k < keys.length; k++)
+      if (keys[k].toLowerCase().indexOf(cand) >= 0) return keys[k];
+  }
+  return null;
+}
+
+// 從多欄位推測排放源名稱（支援環境部格式：燃料/能源種類 + 設施/設備名稱）
+function resolveNameCol(keys) {
+  var NAME_CANDS = ['排放源','燃料','能源種類','設施名稱','設備名稱','排放活動','活動類別','名稱','source','name','category'];
+  return findCol(keys, NAME_CANDS) || keys[0];
+}
+function resolveValCol(keys) {
+  var VAL_CANDS = ['活動數據量','消耗量','使用量','用量','數量','活動量','amount','quantity','value','數值'];
+  return findCol(keys, VAL_CANDS) || keys[1];
+}
+function resolveUnitCol(keys) {
+  var UNIT_CANDS = ['活動數據單位','使用單位','單位','unit'];
+  return findCol(keys, UNIT_CANDS);
+}
+function resolveEfCol(keys) {
+  var EF_CANDS = ['排放係數','emission_factor','ef','factor'];
+  return findCol(keys, EF_CANDS);
+}
+function resolveEfUnitCol(keys) {
+  // 用來判斷 EF 單位是 kg 還是 t
+  var EFU_CANDS = ['係數單位','ef_unit','factor_unit'];
+  return findCol(keys, EFU_CANDS);
+}
+
+// 用排放源名稱查 EF（kg/unit → 最後除以 1000 得 t）
+function lookupEF(name, efElec) {
+  var l = name.toLowerCase();
+  // 電力 / Electricity
+  if (l.indexOf('電力')     >= 0 || l.indexOf('用電')      >= 0 || l.indexOf('外購電') >= 0 ||
+      l.indexOf('electricity') >= 0 || l.indexOf('elec')   >= 0 || l.indexOf('power') >= 0)
+    return efElec;   // kg/kWh
+  // 天然氣 / Natural Gas
+  if (l.indexOf('天然氣')   >= 0 || l.indexOf('natural gas') >= 0 || l.indexOf('naturalgas') >= 0)
+    return EF.naturalGas;
+  // 柴油 / Diesel
+  if (l.indexOf('柴油')     >= 0 || l.indexOf('diesel') >= 0)
+    return EF.diesel;
+  // 汽油 / Gasoline
+  if (l.indexOf('汽油')     >= 0 || l.indexOf('gasoline') >= 0 || l.indexOf('petrol') >= 0)
+    return EF.gasoline;
+  // LPG
+  if (l.indexOf('液化石油') >= 0 || l.indexOf('lpg') >= 0 || l.indexOf('液化氣') >= 0)
+    return EF.lpg;
+  // 廢棄物 / Waste
+  if (l.indexOf('廢棄物')   >= 0 || l.indexOf('垃圾') >= 0 || l.indexOf('waste') >= 0)
+    return EF.waste;
+  // 廢水 / Wastewater
+  if (l.indexOf('廢水')     >= 0 || l.indexOf('wastewater') >= 0 || l.indexOf('污水') >= 0)
+    return EF.waste * 0.5;   // ~0.23 kgCO2e/t 廢水處理估算
+  // 物流/貨運 / Freight
+  if (l.indexOf('貨運')     >= 0 || l.indexOf('物流')   >= 0 || l.indexOf('配送')  >= 0 ||
+      l.indexOf('freight')  >= 0 || l.indexOf('truck')  >= 0 || l.indexOf('logistics') >= 0)
+    return EF.truck;
+  // 國際差旅 / International flight
+  if (l.indexOf('國際差旅') >= 0 || l.indexOf('國際航班') >= 0 || l.indexOf('international') >= 0)
+    return EF.flight_intl * 1000;
+  // 差旅/航班 / Domestic flight
+  if (l.indexOf('航班')     >= 0 || l.indexOf('差旅')   >= 0 || l.indexOf('飛機')  >= 0 ||
+      l.indexOf('flight')   >= 0 || l.indexOf('air travel') >= 0)
+    return EF.flight_dom * 1000;
+  // 通勤 / Commute
+  if (l.indexOf('通勤')     >= 0 || l.indexOf('commute') >= 0 || l.indexOf('員工交通') >= 0)
+    return EF.train * 1000;   // ~0.041 kgCO2e/pkm 保守估算
+  // 火車/高鐵 / Train
+  if (l.indexOf('火車')     >= 0 || l.indexOf('高鐵')   >= 0 || l.indexOf('train') >= 0 || l.indexOf('rail') >= 0)
+    return EF.train * 1000;
+  // 冷媒 / Refrigerant
+  if (l.indexOf('冷媒')     >= 0 || l.indexOf('refrigerant') >= 0 || l.indexOf('r-') >= 0)
+    return 2088;
+  // 蒸汽 / Steam
+  if (l.indexOf('蒸汽')     >= 0 || l.indexOf('steam') >= 0)
+    return 0.0595;   // kg/MJ (59.5 kg/GJ)
+  return null;
 }
 
 function analyzeData(rows, efElec) {
-  const keys = Object.keys(rows[0] || {});
-  const col = (...candidates) => {
-    for (const c of candidates) {
-      const f = keys.find(k => k.toLowerCase().includes(c.toLowerCase()));
-      if (f) return f;
-    }
-    return null;
-  };
-  const nameCol  = col('排放源','類別','項目','活動','名稱','name','category','source') || keys[0];
-  const valueCol = col('數量','用量','活動數據','數值','value','amount','quantity','activity') || keys[1];
-  const unitCol  = col('單位','unit') || null;
-  const efCol    = col('排放係數','ef','factor') || null;
-
-  const emissions = [];
-  for (const row of rows) {
-    const name = String(row[nameCol]||'').trim();
-    if (!name) continue;
-    const rawVal = parseFloat(String(row[valueCol]||'0').replace(/,/g,'')) || 0;
-    const scope = detectScope(name);
-    let emissionVal;
-    if (efCol && row[efCol]) {
-      emissionVal = rawVal * (parseFloat(row[efCol])||0) / 1000;
-    } else {
-      const lower = name.toLowerCase();
-      let ef = efElec / 1000;
-      if (lower.includes('電力')||lower.includes('用電')||lower.includes('外購電')) ef = efElec / 1000;
-      else if (lower.includes('柴油')) ef = EF.diesel / 1000;
-      else if (lower.includes('汽油')) ef = EF.gasoline / 1000;
-      else if (lower.includes('天然氣')) ef = EF.naturalGas / 1000;
-      else if (lower.includes('液化石油')||lower.includes('lpg')) ef = EF.lpg / 1000;
-      else if (lower.includes('廢棄物')||lower.includes('垃圾')) ef = EF.waste / 1000;
-      else if (lower.includes('貨運')||lower.includes('物流')||lower.includes('配送')) ef = EF.truck / 1000;
-      else if (lower.includes('國際差旅')||lower.includes('國際航班')) ef = EF.flight_international;
-      else if (lower.includes('航班')||lower.includes('差旅')||lower.includes('飛機')) ef = EF.flight_domestic;
-      else if (lower.includes('冷媒')) ef = 2.088;
-      else if (lower.includes('蒸汽')) ef = 59.5 / 1000000;
-      else ef = 0.0004;
-      emissionVal = rawVal * ef;
-    }
-    const unit = unitCol ? (row[unitCol]||'—') : '—';
-    emissions.push({ name, value:rawVal, unit, emission:parseFloat(emissionVal.toFixed(4)), scope });
+  // 跳過空行，找第一個有實際 key 的行
+  var firstValidIdx = 0;
+  for (var i = 0; i < rows.length; i++) {
+    var ks = Object.keys(rows[i] || {}).filter(function(k) { return k.trim() !== ''; });
+    if (ks.length >= 2) { firstValidIdx = i; break; }
   }
-  if (emissions.length === 0) throw new Error('找不到有效排放數據列');
+  var keys = Object.keys(rows[firstValidIdx] || {}).filter(function(k) { return k.trim() !== ''; });
+  if (!keys.length) throw new Error('Excel 欄位為空，請確認格式正確。');
 
-  const s1 = emissions.filter(e=>e.scope===1).reduce((a,e)=>a+e.emission,0);
-  const s2 = emissions.filter(e=>e.scope===2).reduce((a,e)=>a+e.emission,0);
-  const s3 = emissions.filter(e=>e.scope===3).reduce((a,e)=>a+e.emission,0);
-  const total = s1+s2+s3;
-  return { emissions, s1, s2, s3, total };
+  var nc  = resolveNameCol(keys);
+  var vc  = resolveValCol(keys);
+  var uc  = resolveUnitCol(keys);
+  var ec  = resolveEfCol(keys);
+  var euc = resolveEfUnitCol(keys);  // 係數單位欄
+
+  // 診斷資訊（console 輸出方便除錯）
+  console.log('[analyzeData] 欄位識別 → 名稱:'+nc+' 數量:'+vc+' 單位:'+uc+' EF:'+ec+' EF單位:'+euc);
+
+  // 判斷 EF 欄的值是 kg 還是 t（若係數單位欄含 't' 則不需 /1000）
+  // 預設假設 Excel 填的是 kgCO2e/unit（台灣環境部標準）
+  var efIsT = false; // 若 EF 欄值已是 tCO2e/unit 則設為 true
+  if (euc) {
+    // 取第一筆有值的係數單位
+    for (var i = firstValidIdx; i < rows.length; i++) {
+      var eu = String(rows[i][euc] || '').toLowerCase();
+      if (eu) {
+        // 含 'tco2' 或 'ton' 且不含 'kg' → 判斷為 t
+        if ((eu.indexOf('tco2') >= 0 || eu.indexOf('噸') >= 0) && eu.indexOf('kg') < 0) {
+          efIsT = true;
+        }
+        break;
+      }
+    }
+  }
+
+  var emissions = [];
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i];
+
+    // 取名稱
+    var name = String(row[nc] || '').trim();
+    if (!name || name === nc) continue; // 跳過空行與 header 重複行
+
+    // 取數量（處理逗號分隔、百分比、空值）
+    var rawStr = String(row[vc] || '').replace(/,/g, '').replace(/%/g, '').trim();
+    var raw = parseFloat(rawStr);
+    if (isNaN(raw) || raw <= 0) continue; // 跳過無效數量
+
+    // 判斷 scope（優先用名稱欄，若有「燃料/能源種類」欄也加入判斷）
+    var scopeName = name;
+    // 若 nc 是設施名稱類，嘗試找「燃料/能源種類」補充判斷
+    var fuelCol = findCol(keys, ['燃料','能源種類','fuel','energy']);
+    if (fuelCol && fuelCol !== nc) {
+      var fuelVal = String(row[fuelCol] || '').trim();
+      if (fuelVal) scopeName = fuelVal + ' ' + name;
+    }
+    var scope = detectScope(scopeName);
+
+    // 計算排放量
+    var emv;
+    var efVal = ec ? parseFloat(String(row[ec] || '').replace(/,/g, '')) : NaN;
+
+    if (!isNaN(efVal) && efVal > 0) {
+      // Excel 有填排放係數
+      if (efIsT) {
+        emv = raw * efVal;            // 已是 tCO2e/unit
+      } else {
+        emv = raw * efVal / 1000;     // kgCO2e/unit → tCO2e
+      }
+    } else {
+      // 用內建 EF 推算（kgCO2e/unit → /1000 → tCO2e）
+      var builtinEF = lookupEF(scopeName, efElec);
+      if (builtinEF !== null) {
+        emv = raw * builtinEF / 1000;
+      } else {
+        // 完全無法識別：標示為待確認，給 0 避免誤導
+        emv = 0;
+        console.warn('[analyzeData] 無法識別排放源：' + name + '，排放量設為 0，請手動確認。');
+      }
+    }
+
+    var unit = uc ? (String(row[uc] || '').trim() || '—') : '—';
+    emissions.push({
+      name:     name,
+      value:    raw,
+      unit:     unit,
+      emission: parseFloat(emv.toFixed(4)),
+      scope:    scope
+    });
+  }
+
+  if (!emissions.length)
+    throw new Error('找不到有效排放數據列。請確認 Excel 包含：名稱欄（排放源/燃料/設施名稱）、數量欄（數量/活動數據量/用量）、單位欄。');
+
+  var s1 = 0, s2 = 0, s3 = 0;
+  for (var i = 0; i < emissions.length; i++) {
+    if      (emissions[i].scope === 1) s1 += emissions[i].emission;
+    else if (emissions[i].scope === 2) s2 += emissions[i].emission;
+    else                               s3 += emissions[i].emission;
+  }
+  return { emissions: emissions, s1: s1, s2: s2, s3: s3, total: s1 + s2 + s3 };
 }
 
-function populateReport(r) {
-  // Get form values
-  const gv = id => document.getElementById(id)?.value || '';
-  const fmt = n => n >= 1000 ? (n/1000).toFixed(2)+'K' : n.toFixed(2);
+// ── Display helpers ────────────────────────────────────────
+function fmt(n) {
+  // Consistent: always show tCO2e with 2 decimals + thousands separator
+  if (n >= 1000) return n.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return n.toFixed(2);
+}
+function pct(v, t) { return t > 0 ? (v / t * 100).toFixed(1) + '%' : '—'; }
 
-  // Cover
-  document.getElementById('rpt-org').textContent = gv('f-org-name') || '（未填寫）';
-  document.getElementById('rpt-period').textContent = '盤查期間：' + (gv('f-period') || gv('f-year'));
-  const veri = document.getElementById('f-verification').value;
-  document.getElementById('rpt-badge-verify').textContent =
-    veri==='yes' ? '第三方查證' : veri==='planned' ? '預計查證' : '自行盤查';
-
-  // Section 1
-  document.getElementById('ri-name').textContent     = gv('f-org-name') || '—';
-  document.getElementById('ri-id').textContent       = gv('f-org-id') || '—';
-  document.getElementById('ri-addr').textContent     = gv('f-org-addr') || '—';
-  document.getElementById('ri-industry').textContent = gv('f-org-industry') || '—';
-  document.getElementById('ri-product').textContent  = gv('f-org-product') || '—';
-  const emp = gv('f-org-employees');
-  document.getElementById('ri-employees').textContent = emp ? emp + ' 人' : '—';
-  const cname = gv('f-contact-name'), ctitle = gv('f-contact-title');
-  document.getElementById('ri-contact').textContent =
-    [cname, ctitle, gv('f-contact-phone'), gv('f-contact-email')].filter(Boolean).join('　|　') || '—';
-  document.getElementById('sign-contact').textContent = [cname, ctitle].filter(Boolean).join(' / ') || '姓名 / 職稱';
-
-  // Section 2
-  document.getElementById('ri-year').textContent     = gv('f-year') + ' 年';
-  document.getElementById('ri-period').textContent   = gv('f-period') || '—';
-  document.getElementById('ri-baseyear').textContent = gv('f-base-year') ? gv('f-base-year') + ' 年' : '—';
-  const bmMap = { equity:'股權比例法 (Equity Share Approach)', financial:'財務控制權法 (Financial Control Approach)', operational:'營運控制權法 (Operational Control Approach)' };
-  document.getElementById('ri-boundary-method').textContent = bmMap[document.getElementById('f-boundary-method').value] || '—';
-  document.getElementById('ri-org-boundary').textContent = gv('f-org-boundary') || '—';
-  document.getElementById('ri-exclusion').textContent = gv('f-exclusion') || '無排除項目';
-  document.getElementById('ri-method').textContent   = gv('f-method-s1');
-  document.getElementById('ri-ef-source').textContent= gv('f-ef-source');
-  document.getElementById('ri-elec-ef').textContent  = gv('f-elec-ef') + ' kgCO₂e/kWh';
-  const verifyMap = { no:'否，本次為自行盤查', yes:'是，已委託第三方查證（'+gv('f-verifier')+'，查證聲明書編號：'+gv('f-verify-no')+'）', planned:'預計委託第三方查證' };
-  document.getElementById('ri-verification').textContent = verifyMap[veri] || '—';
-
-  // Section 3 stats
-  document.getElementById('stat-total').textContent = fmt(r.total);
-  document.getElementById('stat-s1').textContent    = fmt(r.s1);
-  document.getElementById('stat-s2').textContent    = fmt(r.s2);
-  document.getElementById('stat-s3').textContent    = fmt(r.s3);
-  document.getElementById('tfoot-total').textContent = r.total.toFixed(4) + ' tCO₂e';
-
-  // Section 4 intensity
-  const pct = v => r.total > 0 ? (v/r.total*100).toFixed(1)+'%' : '—';
-  document.getElementById('stat-s1-pct').textContent = pct(r.s1);
-  document.getElementById('stat-s2-pct').textContent = pct(r.s2);
-  document.getElementById('stat-s3-pct').textContent = pct(r.s3);
-  const empCount = parseInt(gv('f-org-employees'));
-  document.getElementById('stat-per-emp').textContent = (empCount > 0) ? (r.total/empCount).toFixed(2) : '—';
-
-  // Table
-  const tbody = document.getElementById('emission-tbody');
-  tbody.innerHTML = '';
-  r.emissions.sort((a,b) => b.emission-a.emission).forEach(e => {
-    const sl = ['','範疇一','範疇二','範疇三'][e.scope];
-    tbody.innerHTML += `<tr data-scope="${e.scope}">
-      <td>${getCategoryLabel(e.name)}</td>
-      <td>${e.name}</td>
-      <td class="num">${e.value.toLocaleString()} ${e.unit}</td>
-      <td class="num"><strong>${e.emission.toFixed(4)}</strong></td>
-      <td class="scope-${e.scope}">${sl}</td>
-    </tr>`;
-  });
-  updateRowCount('all');
-
-  // Scope chart
-  const total = r.total || 1;
-  document.getElementById('scope-chart').innerHTML = [
-    scopeBar('範疇一 直接排放', r.s1, total, 'fill-1', 'scope-1'),
-    scopeBar('範疇二 能源間接', r.s2, total, 'fill-2', 'scope-2'),
-    scopeBar('範疇三 其他間接', r.s3, total, 'fill-3', 'scope-3'),
-  ].join('');
-
-  // Section 5 intro
-  const year = gv('f-year') || '本';
-  const orgName = gv('f-org-name') || '本組織';
-  document.getElementById('rpt-reduction-intro').innerHTML = `<p>${orgName} ${year} 年度溫室氣體總排放量為 <strong>${r.total.toFixed(2)} 公噸 CO₂e</strong>，其中範疇一（直接排放）佔 ${pct(r.s1)}，範疇二（電力）佔 ${pct(r.s2)}，範疇三（其他間接）佔 ${pct(r.s3)}。依據盤查結果，提出以下管理改善建議，作為後續減碳行動方案規劃之參考：</p>`;
-
-  // Suggestions
-  document.getElementById('suggestions').innerHTML = generateSuggestions(r).map(s =>
-    `<li class="suggestion-item"><div class="suggestion-dot"></div><span>${s}</span></li>`
-  ).join('');
-
-  // Sign date
-  const now = new Date();
-  document.getElementById('sign-date').textContent = `${now.getFullYear()} 年 ${now.getMonth()+1} 月 ${now.getDate()} 日`;
+function catLbl(name) {
+  var l = name.toLowerCase();
+  if (l.indexOf('電力')   >= 0 || l.indexOf('用電')   >= 0) return '⚡ 電力';
+  if (l.indexOf('天然氣') >= 0)                             return '🔥 天然氣';
+  if (l.indexOf('柴油')   >= 0)                             return '⛽ 柴油';
+  if (l.indexOf('汽油')   >= 0)                             return '⛽ 汽油';
+  if (l.indexOf('蒸汽')   >= 0)                             return '♨️ 蒸汽';
+  if (l.indexOf('航班')   >= 0 || l.indexOf('差旅')   >= 0) return '✈️ 差旅';
+  if (l.indexOf('廢棄物') >= 0 || l.indexOf('垃圾')   >= 0) return '🗑 廢棄物';
+  if (l.indexOf('廢水')   >= 0)                             return '💧 廢水';
+  if (l.indexOf('貨運')   >= 0 || l.indexOf('物流')   >= 0) return '🚛 物流';
+  if (l.indexOf('通勤')   >= 0 || l.indexOf('員工')   >= 0) return '🚌 通勤';
+  if (l.indexOf('冷媒')   >= 0)                             return '❄️ 冷媒';
+  return '📊 其他';
 }
 
-function scopeBar(label, val, total, fillClass, labelClass) {
-  const pct = total > 0 ? Math.round(val/total*100) : 0;
-  return `<div class="scope-bar-item">
-    <div class="scope-bar-header">
-      <span class="scope-bar-label ${labelClass}">${label}</span>
-      <span class="scope-bar-value">${val.toFixed(2)} tCO₂e · ${pct}%</span>
-    </div>
-    <div class="scope-bar-track"><div class="scope-bar-fill ${fillClass}" style="width:${pct}%"></div></div>
-  </div>`;
+function mkScopeBar(lbl, val, tot, fillCls, delay) {
+  var p = tot > 0 ? Math.round(val / tot * 100) : 0;
+  var ds = delay ? 'transition-delay:' + delay + 's;' : '';
+  return '<div class="r-bar">' +
+    '<div class="r-bar-head">' +
+      '<span class="r-bar-label">' + lbl + '</span>' +
+      '<span class="r-bar-val">' + val.toFixed(2) + ' t · ' + p + '%</span>' +
+    '</div>' +
+    '<div class="r-bar-track">' +
+      '<div class="r-bar-fill ' + fillCls + '" data-w="' + p + '" style="width:0;--bar-w:' + p + '%;' + ds + '"></div>' +
+    '</div></div>';
 }
 
-function getCategoryLabel(name) {
-  const l = name.toLowerCase();
-  if (l.includes('電力')||l.includes('用電')) return '⚡ 電力消耗';
-  if (l.includes('天然氣')||l.includes('lng')) return ' 天然氣';
-  if (l.includes('柴油')) return '⛽ 柴油燃燒';
-  if (l.includes('汽油')) return '⛽ 汽油燃燒';
-  if (l.includes('蒸汽')) return '♨️ 外購蒸汽';
-  if (l.includes('航班')||l.includes('差旅')||l.includes('飛機')) return '✈️ 差旅';
-  if (l.includes('廢棄物')||l.includes('垃圾')) return '️ 廢棄物';
-  if (l.includes('廢水')) return ' 廢水處理';
-  if (l.includes('貨運')||l.includes('物流')||l.includes('配送')) return ' 物流運輸';
-  if (l.includes('通勤')||l.includes('員工')) return ' 員工通勤';
-  if (l.includes('冷媒')) return '❄️ 冷媒逸散';
-  return ' 其他排放';
-}
-
-function generateSuggestions(r) {
-  const total = r.total || 1;
-  const sugs = [];
-  if (r.s2/total > 0.35) sugs.push('電力排放佔比達 ' + (r.s2/total*100).toFixed(1) + '%，為最主要排放源。建議評估採購再生能源憑證 (REC)、安裝太陽能光電系統，或與電力公司簽訂綠電合約，可直接降低範疇二排放強度。');
-  if (r.s1/total > 0.25) sugs.push('直接排放（範疇一）佔 ' + (r.s1/total*100).toFixed(1) + '%，建議優先針對高排放設備進行燃料效率改善計畫，並評估鍋爐、發電機等設備的電氣化替換可行性。');
-  if (r.s3/total > 0.4) sugs.push('供應鏈及間接排放（範疇三）佔比超過 40%，建議推動供應商碳盤查計畫，將碳排表現納入供應商評選標準，並優化物流路線以降低運輸排放。');
-  sugs.push('建立能源管理系統 (ISO 50001)，在廠區及各樓層設置分表計量，強化能源數據品質，並設定明確的年度節能目標（建議每年至少減少 2% 用電量）。');
-  sugs.push('依科學基礎減量目標倡議 (SBTi) 設定符合 1.5°C 情境的短中長期減碳目標，制定至 2030 年的分階段減碳路徑，並於永續報告書中定期揭露進度。');
-  if (sugs.length < 5) sugs.push('針對無法削減的剩餘排放量，評估採購高品質碳抵換額度 (Carbon Offset)，選擇符合 Gold Standard 或 Verra VCS 認證之碳信用，作為達成碳中和聲明的補充措施。');
+function makeSugs(r) {
+  var t = r.total || 1, sugs = [];
+  if (r.s2 / t > 0.35)
+    sugs.push('電力排放佔比達 ' + (r.s2/t*100).toFixed(1) + '%，建議評估採購再生能源憑證（REC）、安裝太陽能光電，或與電力公司簽訂綠電合約，可直接降低範疇二排放強度。');
+  if (r.s1 / t > 0.25)
+    sugs.push('直接排放（範疇一）佔 ' + (r.s1/t*100).toFixed(1) + '%，建議優先針對高排放設備進行燃料效率改善計畫，並評估鍋爐、發電機電氣化替換可行性。');
+  if (r.s3 / t > 0.4)
+    sugs.push('供應鏈及間接排放（範疇三）佔比超過 40%，建議推動供應商碳盤查計畫，將碳排表現納入供應商評選標準，並優化物流路線以降低運輸排放。');
+  sugs.push('建立能源管理系統（ISO 50001），在廠區各樓層設置分表計量，強化能源數據品質，設定年度至少 2% 節能目標。');
+  sugs.push('依科學基礎減量目標倡議（SBTi）設定符合 1.5°C 情境之短中長期減碳目標，制定 2030 年分階段減碳路徑。');
+  if (sugs.length < 5)
+    sugs.push('評估採購符合 Gold Standard 或 Verra VCS 認證之碳信用，作為達成碳中和聲明的補充措施。');
   return sugs.slice(0, 5);
 }
 
-// ══ Scope filter ═══════════════════════════════════════════
-function filterScope(scope, btn) {
-  const cls = { all:'active-all', '1':'active-s1', '2':'active-s2', '3':'active-s3' }[scope];
-  document.querySelectorAll('.scope-btn').forEach(b => b.classList.remove('active-all','active-s1','active-s2','active-s3'));
-  btn.classList.add(cls);
-  document.querySelectorAll('#emission-tbody tr').forEach(row => {
-    row.classList.toggle('hidden-row', scope !== 'all' && row.dataset.scope !== scope);
-  });
-  updateRowCount(scope);
+// ── Fill report ────────────────────────────────────────────
+function fillReport(r) {
+  /* 封面 */
+  document.getElementById('rc-org').textContent =
+    gv('f-org-name') || '（未填寫）';
+  document.getElementById('rc-period').textContent =
+    '盤查期間：' + (gv('f-period') || gv('f-year') + ' 年');
+  var veri = gv('f-verification') || 'no';
+  document.getElementById('rc-verify').textContent =
+    veri === 'yes' ? '已通過第三方查證' :
+    veri === 'planned' ? '預計第三方查證' : '自行盤查';
+
+  /* SEC 1 — 可編輯欄位 */
+  document.getElementById('ri-name').textContent     = gv('f-org-name');
+  document.getElementById('ri-id').textContent       = gv('f-org-id');
+  document.getElementById('ri-addr').textContent     = gv('f-org-addr');
+  document.getElementById('ri-industry').textContent = gv('f-org-industry');
+  document.getElementById('ri-product').textContent  = gv('f-org-product');
+  var emp = gv('f-org-employees');
+  document.getElementById('ri-employees').textContent = emp ? emp + ' 人' : '';
+  var cname = gv('f-contact-name'), ctitle = gv('f-contact-title');
+  var cparts = [cname, ctitle, gv('f-contact-phone'), gv('f-contact-email')];
+  document.getElementById('ri-contact').textContent =
+    cparts.filter(function(x) { return !!x; }).join('　|　');
+
+  /* SEC 2 */
+  var bmMap = { equity: '股權比例法', financial: '財務控制權法', operational: '營運控制權法' };
+  document.getElementById('ri-year').textContent     = gv('f-year') + ' 年';
+  document.getElementById('ri-baseyear').textContent = gv('f-base-year') ? gv('f-base-year') + ' 年' : '—';
+  document.getElementById('ri-period').textContent   = gv('f-period') || '—';
+  document.getElementById('ri-bmethod').textContent  = bmMap[gv('f-boundary-method')] || '—';
+  document.getElementById('ri-boundary').textContent = gv('f-org-boundary') || '—';
+  document.getElementById('ri-exclusion').textContent= gv('f-exclusion') || '無';
+  document.getElementById('ri-method').textContent   = gv('f-method-s1') || '排放係數法';
+  document.getElementById('ri-efsource').textContent = gv('f-ef-source') || '環境部公告係數';
+  document.getElementById('ri-elecef').textContent   = (gv('f-elec-ef') || '0.494') + ' kgCO₂e/kWh';
+  var vmaps = {
+    no:      '否，本次為自行盤查',
+    yes:     '是，已委託 ' + (gv('f-verifier') || '—') + '（聲明書：' + (gv('f-verify-no') || '—') + '）',
+    planned: '預計委託第三方查證'
+  };
+  document.getElementById('ri-verifytxt').textContent = vmaps[veri] || '—';
+
+  /* SEC 3 — 統計卡片 */
+  document.getElementById('st-total').textContent = fmt(r.total);
+  document.getElementById('st-s1').textContent    = fmt(r.s1);
+  document.getElementById('st-s2').textContent    = fmt(r.s2);
+  document.getElementById('st-s3').textContent    = fmt(r.s3);
+  document.getElementById('ft-total').textContent = r.total.toFixed(4) + ' tCO₂e';
+
+  /* SEC 3 — 排放明細表格 */
+  var sorted = r.emissions.slice().sort(function(a, b) { return b.emission - a.emission; });
+  var SLBL   = ['', '範疇一', '範疇二', '範疇三'];
+  var html   = '';
+  for (var i = 0; i < sorted.length; i++) {
+    var e = sorted[i];
+    html += '<tr data-scope="' + e.scope + '">';
+    html += '<td>' + catLbl(e.name) + '</td>';
+    html += '<td>' + e.name + '</td>';
+    html += '<td class="rn">' + e.value.toLocaleString() + ' ' + e.unit + '</td>';
+    html += '<td class="rn"><strong>' + e.emission.toFixed(4) + '</strong></td>';
+    html += '<td class="c' + e.scope + '">' + SLBL[e.scope] + '</td>';
+    html += '</tr>';
+  }
+  document.getElementById('em-tbody').innerHTML = html;
+  updCount('all');
+
+  /* SEC 3 — 範疇佔比條 */
+  var tot = r.total || 1;
+  var chartEl = document.getElementById('scope-chart');
+  chartEl.innerHTML =
+    mkScopeBar('範疇一 直接排放', r.s1, tot, 'bf1', 0.1) +
+    mkScopeBar('範疇二 能源間接', r.s2, tot, 'bf2', 0.3) +
+    mkScopeBar('範疇三 其他間接', r.s3, tot, 'bf3', 0.5);
+  // Trigger width animation after DOM paint
+  setTimeout(function() {
+    chartEl.querySelectorAll('.r-bar-fill').forEach(function(el) {
+      el.style.width = el.dataset.w + '%';
+    });
+  }, 60);
+
+  /* SEC 4 — 強度指標 */
+  document.getElementById('st-s1pct').textContent = pct(r.s1, r.total);
+  document.getElementById('st-s2pct').textContent = pct(r.s2, r.total);
+  document.getElementById('st-s3pct').textContent = pct(r.s3, r.total);
+  var ec2 = parseInt(gv('f-org-employees'));
+  document.getElementById('st-peremp').textContent =
+    ec2 > 0 ? (r.total / ec2).toFixed(2) : '—';
+
+  /* SEC 5 — 建議 */
+  var year = gv('f-year') || '本', org = gv('f-org-name') || '本組織';
+  document.getElementById('rpt-intro').innerHTML =
+    '<p>' + org + ' ' + year + ' 年度溫室氣體總排放量為 <strong>' +
+    r.total.toFixed(2) + ' 公噸 CO₂e</strong>，' +
+    '其中範疇一（直接排放）佔 ' + pct(r.s1, r.total) +
+    '，範疇二（電力）佔 ' + pct(r.s2, r.total) +
+    '，範疇三（其他間接）佔 ' + pct(r.s3, r.total) +
+    '。依盤查結果，提出以下管理改善建議：</p>';
+  var sugs = makeSugs(r), sh = '';
+  for (var i = 0; i < sugs.length; i++)
+    sh += '<li class="r-sug"><div class="r-sug-dot"></div><span>' + sugs[i] + '</span></li>';
+  document.getElementById('sugs').innerHTML = sh;
+
+  /* SEC 6 — 簽章 */
+  var now = new Date();
+  document.getElementById('sign-date').textContent =
+    now.getFullYear() + ' 年 ' + (now.getMonth() + 1) + ' 月 ' + now.getDate() + ' 日';
+  document.getElementById('sign-contact').textContent =
+    [cname, ctitle].filter(function(x) { return !!x; }).join(' / ') || '姓名 / 職稱';
 }
 
-function updateRowCount(scope) {
-  const rows = [...document.querySelectorAll('#emission-tbody tr')];
-  const visible = scope === 'all' ? rows.length : rows.filter(r => r.dataset.scope === scope).length;
-  document.getElementById('row-count').textContent = visible + ' 筆';
+// ── Scope filter ───────────────────────────────────────────
+function filterS(scope, btn) {
+  var CLS = { all: 'f-all', '1': 'f-s1', '2': 'f-s2', '3': 'f-s3' };
+  document.querySelectorAll('.r-fbtn').forEach(function(b) {
+    b.classList.remove('f-all', 'f-s1', 'f-s2', 'f-s3');
+  });
+  btn.classList.add(CLS[scope]);
+  document.querySelectorAll('#em-tbody tr').forEach(function(tr) {
+    tr.classList.toggle('hrow', scope !== 'all' && tr.dataset.scope !== scope);
+  });
+  updCount(scope);
+}
+function updCount(scope) {
+  var rows = document.querySelectorAll('#em-tbody tr');
+  var n = 0;
+  rows.forEach(function(tr) {
+    if (scope === 'all' || tr.dataset.scope === scope) n++;
+  });
+  var el = document.getElementById('r-count');
+  if (el) el.textContent = n + ' 筆';
 }
 
-// ══ Utils ═══════════════════════════════════════════════════
-function showLoading() { document.getElementById('loading').classList.add('show'); }
-function hideLoading() { document.getElementById('loading').classList.remove('show'); }
-function showError(msg) { const e=document.getElementById('error-box'); e.textContent=msg; e.style.display='block'; }
-function hideError() { document.getElementById('error-box').style.display='none'; }
+// ── Generate ───────────────────────────────────────────────
+function doGenerate() {
+  if (!uploadedData) {
+    var eb = document.getElementById('errbox');
+    eb.textContent = '請先上傳 Excel 檔案或使用範例數據';
+    eb.style.display = 'block';
+    return;
+  }
+  document.getElementById('loading').classList.add('show');
+  setTimeout(function() {
+    var report;
+    try {
+      var ef = parseFloat(gv('f-elec-ef')) || 0.494;
+      report = analyzeData(uploadedData, ef);
+    } catch(err) {
+      document.getElementById('loading').classList.remove('show');
+      var eb = document.getElementById('errbox');
+      eb.textContent = '數據分析錯誤：' + err.message;
+      eb.style.display = 'block';
+      return;
+    }
+    goTo(4);
+    fillReport(report);
+    document.getElementById('loading').classList.remove('show');
+    initEditable();
+  }, 600);
+}
 
-function resetAll() {
-  uploadedData = null;
-  document.querySelectorAll('input[type=text], input[type=number], textarea').forEach(el => {
-    if (!el.id.includes('elec-ef') && !el.id.includes('year') && !el.id.includes('period')) el.value = '';
+// ── Editable cells in report ───────────────────────────────
+function initEditable() {
+  document.querySelectorAll('.r-ed').forEach(function(cell) {
+    cell.addEventListener('blur', function() {
+      var th  = cell.closest('tr').querySelector('th');
+      var req = th && th.textContent.indexOf('*') >= 0;
+      if (req && !cell.textContent.trim()) {
+        cell.classList.add('err');
+        document.getElementById('ed-warn').style.display = 'block';
+      } else {
+        cell.classList.remove('err');
+        if (!document.querySelectorAll('.r-ed.err').length)
+          document.getElementById('ed-warn').style.display = 'none';
+      }
+    });
+    cell.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') { e.preventDefault(); cell.blur(); }
+    });
   });
-  document.getElementById('f-elec-ef').value = '0.494';
-  document.getElementById('generate-btn').disabled = true;
-  document.getElementById('file-info').style.display = 'none';
-  document.getElementById('progress-bar').style.display = 'none';
-  document.getElementById('file-input').value = '';
-  hideError();
-  goStep(1);
 }
 </script>
 </body>

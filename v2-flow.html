@@ -269,6 +269,16 @@ textarea{resize:vertical;min-height:72px;line-height:1.6;}
 .pg-line{width:2px;height:20px;background:var(--ink3);margin-left:13px;transition:background .3s;}
 .pg-item.done+.pg-line{background:var(--moss);}
 
+
+/* ── Editable report cells ── */
+.editable-cell{outline:none;border-radius:2px;transition:background .15s;min-width:40px;display:inline-block;width:100%;}
+.editable-cell:hover{background:rgba(45,106,79,.1);cursor:text;}
+.editable-cell:focus{background:#fff9f0;box-shadow:inset 0 0 0 2px #2d6a4f;}
+.editable-cell:empty::before{content:attr(data-placeholder);color:#aaa;font-style:italic;}
+.edit-hint{font-size:10px;color:#8a9e8f;font-family:var(--mono);margin-bottom:8px;letter-spacing:1px;}
+.edit-warn{background:#fff3cd;border:1px solid #f0a500;color:#7a5000;padding:8px 14px;font-size:12px;font-family:var(--mono);display:none;margin-bottom:12px;border-radius:2px;}
+.cell-empty{box-shadow:inset 0 0 0 2px #f0a500 !important;background:#fffbf0 !important;}
+
 @media print{
   .rail,.pg-tracker,.btn-row,.sf-row,.no-print{display:none!important;}
   .report-paper .rpt-cover{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
@@ -282,6 +292,7 @@ textarea{resize:vertical;min-height:72px;line-height:1.6;}
 
 <!-- TOP RAIL -->
 <div class="rail">
+  <a href="index.html" class="rail-home" title="回首頁">&#8592;</a>
   <div class="rail-logo">GHG<br><span>CARBON MGT</span></div>
   <div class="rail-flow" id="rail-flow">
     <!-- rendered by JS -->
@@ -529,14 +540,14 @@ textarea{resize:vertical;min-height:72px;line-height:1.6;}
 
     <div class="rpt-section">
       <div class="rpt-sec-label">SECTION 1</div><div class="rpt-sec-title">組織概況</div>
-      <table class="rpt-info-table">
-        <tr><th>組織名稱</th><td id="r-name">—</td></tr>
-        <tr><th>統一編號</th><td id="r-id">—</td></tr>
-        <tr><th>主要營業地址</th><td id="r-addr">—</td></tr>
-        <tr><th>產業類別</th><td id="r-industry">—</td></tr>
-        <tr><th>主要產品 / 服務</th><td id="r-product">—</td></tr>
-        <tr><th>員工人數</th><td id="r-employees">—</td></tr>
-        <tr><th>盤查負責人</th><td id="r-contact">—</td></tr>
+      <div class="edit-hint">✎ 以下欄位可直接點擊修改</div><div class="edit-warn" id="blank-warn">⚠ 帶有 * 標示的欄位不可留空</div><table class="rpt-info-table">
+        <tr><th>組織名稱</th><td><span class="editable-cell" id="r-name" contenteditable="true" data-placeholder="點擊輸入..." data-required="true">—</span></td></tr>
+        <tr><th>統一編號</th><td><span class="editable-cell" id="r-id" contenteditable="true" data-placeholder="點擊輸入..." data-required="true">—</span></td></tr>
+        <tr><th>主要營業地址</th><td><span class="editable-cell" id="r-addr" contenteditable="true" data-placeholder="點擊輸入..." data-required="true">—</span></td></tr>
+        <tr><th>產業類別</th><td><span class="editable-cell" id="r-industry" contenteditable="true" data-placeholder="點擊輸入..." data-required="true">—</span></td></tr>
+        <tr><th>主要產品 / 服務</th><td><span class="editable-cell" id="r-product" contenteditable="true" data-placeholder="點擊輸入..." data-required="true">—</span></td></tr>
+        <tr><th>員工人數</th><td><span class="editable-cell" id="r-employees" contenteditable="true" data-placeholder="點擊輸入..." data-required="true">—</span></td></tr>
+        <tr><th>盤查負責人</th><td><span class="editable-cell" id="r-contact" contenteditable="true" data-placeholder="點擊輸入..." data-required="true">—</span></td></tr>
         <tr><th>資料來源</th><td id="r-datasource">—</td></tr>
       </table>
     </div>
@@ -892,7 +903,7 @@ function validateAndGenerate(){
       const efElec=parseFloat(document.getElementById('f-elec-ef').value)||0.494;
       const result=analyzeData(data,efElec);
       fillReport(result);
-      hideLoading();goStep(5);
+      hideLoading();goStep(5);setTimeout(initEditableCells,200);
     }catch(err){hideLoading();alert('報告生成失敗：'+err.message);}
   },1200);
 }
